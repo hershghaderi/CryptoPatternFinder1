@@ -27,9 +27,14 @@ jobs:
         TARGET_DIR=$(find extracted_project -name "build.gradle.kts" -o -name "build.gradle" | head -n 1 | xargs dirname)
         echo "PROJECT_PATH=$TARGET_DIR" >> $GITHUB_ENV
 
-    - name: Build Debug APK
+    - name: Configure Java 17 Compatibility and Build
       run: |
         cd ${{ env.PROJECT_PATH }}
+        
+        # Force Kotlin and Java target compatibility to 17 in gradle files
+        find . -name "build.gradle*" -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} +
+        find . -name "build.gradle*" -exec sed -i 's/1.8/17/g' {} +
+        
         gradle assembleDebug -Dorg.gradle.java.home=$JAVA_HOME -Dorg.gradle.jvmargs="-Xmx2048m" --no-daemon
 
     - name: Find and Rename APK
