@@ -1,1 +1,11 @@
-# CryptoPatternFinder1
+# Crypto Pattern Finder — Build Ready
+
+این نسخه شامل پروژه Android/Gradle، OCR با ML Kit، دیتابیس محلی، ثبت چند صرافی، موتور کشف الگو و رابط کاربری پایه است.
+
+## Build
+محتویات را در یک GitHub repository قرار بده و از Actions، workflow با نام Build APK را اجرا کن. خروجی `app-debug.apk` در Artifacts قرار می‌گیرد.
+
+## منطق
+اسکرین‌شات -> OCR -> نام ارز/درصد -> ثبت تاریخ و ساعت مشاهده -> ذخیره -> کشف الگوهای روز/ساعت مشابه.
+
+توجه: OCR عمومی است و برای هر صرافی ممکن است parser اختصاصی لازم باشد. بخش اخبار نیز باید به یک API خبری متصل شود؛ کلید API نباید داخل APK قرار گیرد.
