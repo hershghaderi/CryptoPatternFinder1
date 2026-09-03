@@ -225,9 +225,9 @@ object OcrParser {
 
             if (line.isBlank()) continue
 
-            val symbol = findSymbol(line) ?: continue
+            val symbol = findSymbol(line)
 
-            val change = findChangePercent(line) ?: continue
+            val change = findChangePercent(line)
 
             /*
              * تغییرات غیرمنطقی حذف شوند.
