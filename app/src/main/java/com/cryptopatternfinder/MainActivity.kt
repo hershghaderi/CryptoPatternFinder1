@@ -47,7 +47,7 @@ fun App(store:Store) {
                 .process(image)
                 .addOnSuccessListener { result ->
                     val rows=OcrParser.parse(result.text,exchange,LocalDateTime.now())
-                    rows.forEach { store.insert(it,uri.toString()) }
+                    rows.forEach { store.insert(it) }
                     refresh()
                     message="${rows.size} ارز شناسایی و ذخیره شد."
                 }
