@@ -498,6 +498,7 @@ fun PriceChart(
                     .coerceAtLeast(1.0)
                 val outlineColor = MaterialTheme.colorScheme.outline
                 val primaryColor = MaterialTheme.colorScheme.primary
+                val primaryColor = MaterialTheme.colorScheme.primary
 
                 Canvas(
                     modifier = Modifier
