@@ -1,60 +1,183 @@
-package com.cryptopatternfinder
+fun App(store: Store) {
 
-import android.net.Uri
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.cryptopatternfinder.core.Observation
-import com.cryptopatternfinder.core.PatternEngine
-import com.cryptopatternfinder.data.Store
-import com.cryptopatternfinder.ocr.OcrParser
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+    var tab by remember { mutableIntStateOf(0) }
+    var exchange by remember { mutableStateOf("") }
+    var selectedSymbol by remember { mutableStateOf("") }
 
-class MainActivity : ComponentActivity() {
+    var message by remember {
+        mutableStateOf(
+            "نام صرافی را وارد کن و سپس اسکرین‌شات را انتخاب کن."
+        )
+    }
 
-    override fun onCreate(state: Bundle?) {
-        super.onCreate(state)
+    val data = remember {
+        mutableStateListOf<Observation>()
+    }
 
-        setContent {
-            App(Store(this))
+    fun refresh() {
+        data.clear()
+        data.addAll(store.all())
+    }
+
+    LaunchedEffect(Unit) {
+        refresh()
+    }
+
+    val symbols = data
+        .map { it.symbol }
+        .distinct()
+        .sorted()
+
+    val picker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        if (exchange.isBlank()) {
+            message = "اول نام صرافی را وارد کن."
+            return@rememberLauncherForActivityResult
+        }
+
+        try {
+
+            val image = InputImage.fromFilePath(
+                store.appContext,
+                uri
+            )
+
+            TextRecognition
+                .getClient(
+                    TextRecognizerOptions.DEFAULT_OPTIONS
+                )
+                .process(image)
+                .addOnSuccessListener { result ->
+
+                    val rows = OcrParser.parse(
+                        result.text,
+                        exchange.trim(),
+                        LocalDateTime.now()
+                    )
+
+                    rows.forEach { observation ->
+                        store.insert(observation)
+                    }
+
+                    refresh()
+
+                    message =
+                        if (rows.isEmpty()) {
+                            "ارزی از تصویر شناسایی نشد."
+                        } else {
+                            "${rows.size} ارز از صرافی ${exchange.trim()} ذخیره شد."
+                        }
+                }
+                .addOnFailureListener { error ->
+
+                    message =
+                        "خطا در OCR: ${error.message ?: "خطای نامشخص"}"
+                }
+
+        } catch (e: Exception) {
+
+            message =
+                "خطا در باز کردن تصویر: ${e.message ?: "خطای نامشخص"}"
+        }
+    }
+
+    MaterialTheme {
+
+        Scaffold(
+
+            bottomBar = {
+
+                NavigationBar {
+
+                    val names = listOf(
+                        "ثبت",
+                        "تحلیل",
+                        "اخبار",
+                        "تأثیر اخبار",
+                        "تاریخچه"
+                    )
+
+                    names.forEachIndexed { index, name ->
+
+                        NavigationBarItem(
+                            selected = tab == index,
+                            onClick = {
+                                tab = index
+                            },
+                            icon = {},
+                            label = {
+                                Text(name)
+                            }
+                        )
+                    }
+                }
+            }
+
+        ) { padding ->
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp)
+            ) {
+
+                Text(
+                    "Crypto Pattern Finder",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                Spacer(
+                    Modifier.height(12.dp)
+                )
+
+                when (tab) {
+
+                    0 -> RegistrationScreen(
+                        exchange = exchange,
+                        onExchangeChange = {
+                            exchange = it
+                        },
+                        message = message,
+                        onPickImage = {
+                            picker.launch("image/*")
+                        },
+                        totalRecords = data.size
+                    )
+
+                    1 -> AnalysisScreen(
+                        data = data,
+                        symbols = symbols,
+                        selectedSymbol = selectedSymbol,
+                        onSymbolSelected = {
+                            selectedSymbol = it
+                        }
+                    )
+
+                    2 -> NewsScreen(
+                        symbols = symbols,
+                        selectedSymbol = selectedSymbol,
+                        onSymbolSelected = {
+                            selectedSymbol = it
+                        }
+                    )
+
+                    3 -> NewsImpactScreen(
+                        data = data,
+                        symbols = symbols,
+                        selectedSymbol = selectedSymbol,
+                        onSymbolSelected = {
+                            selectedSymbol = it
+                        }
+                    )
+
+                    4 -> HistoryScreen(data)
+                }
+            }
         }
     }
 }
-
-@Composable
