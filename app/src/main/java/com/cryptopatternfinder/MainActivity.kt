@@ -496,6 +496,8 @@ fun PriceChart(
 
                 val range = (maxValue - minValue)
                     .coerceAtLeast(1.0)
+                val outlineColor = MaterialTheme.colorScheme.outline
+                val primaryColor = MaterialTheme.colorScheme.primary
 
                 Canvas(
                     modifier = Modifier
