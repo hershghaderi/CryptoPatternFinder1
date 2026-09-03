@@ -512,11 +512,12 @@ fun PriceChart(
                             (((0.0 - minValue) / range) * height)
                                 .toFloat()
                                 .coerceIn(0f, height)
-
                     drawLine(
+                        color = MaterialTheme.colorScheme.outline,
                         start = Offset(0f, zeroY),
                         end = Offset(width, zeroY),
                         strokeWidth = 2f
+                   
                     )
 
                     if (chartRows.size >= 2) {
@@ -546,11 +547,12 @@ fun PriceChart(
                                     (((values[i + 1] - minValue) / range) *
                                         height)
                                         .toFloat()
+                           drawLine(
+                               color = MaterialTheme.colorScheme.primary,
+                               start = Offset(x1, y1),
+                               end = Offset(x2, y2),
+                               strokeWidth = 5f
 
-                            drawLine(
-                                start = Offset(x1, y1),
-                                end = Offset(x2, y2),
-                                strokeWidth = 5f
                             )
                         }
                     }
