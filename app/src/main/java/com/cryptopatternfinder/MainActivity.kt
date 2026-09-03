@@ -515,7 +515,7 @@ fun PriceChart(
                                 .toFloat()
                                 .coerceIn(0f, height)
                     drawLine(
-                        color = MaterialTheme.colorScheme.outline,
+                        color = outlineColor,
                         start = Offset(0f, zeroY),
                         end = Offset(width, zeroY),
                         strokeWidth = 2f
@@ -550,7 +550,7 @@ fun PriceChart(
                                         height)
                                         .toFloat()
                            drawLine(
-                               color = MaterialTheme.colorScheme.primary,
+                               color = primaryColor,
                                start = Offset(x1, y1),
                                end = Offset(x2, y2),
                                strokeWidth = 5f
