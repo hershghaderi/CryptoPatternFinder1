@@ -463,11 +463,9 @@ fun AnalysisScreen(
 fun PriceChart(
     rows: List<Observation>
 ) {
-
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
-
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
@@ -485,50 +483,115 @@ fun PriceChart(
 
             } else {
 
-                val maxAbs = rows
-                    .maxOf {
-                        kotlin.math.abs(it.changePercent)
-                    }
+                val chartRows = rows
+                    .sortedBy { it.observedAt }
+                    .takeLast(20)
+
+                val values = chartRows.map {
+                    it.changePercent
+                }
+
+                val minValue = values.minOrNull() ?: 0.0
+                val maxValue = values.maxOrNull() ?: 0.0
+
+                val range = (maxValue - minValue)
                     .coerceAtLeast(1.0)
 
-                rows.takeLast(12).forEach { row ->
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                ) {
 
-                    val width =
-                        ((kotlin.math.abs(row.changePercent) / maxAbs) * 220)
-                            .toInt()
-                            .coerceAtLeast(4)
+                    val width = size.width
+                    val height = size.height
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    // خط صفر
+                    val zeroY =
+                        height -
+                            (((0.0 - minValue) / range) * height)
+                                .toFloat()
+                                .coerceIn(0f, height)
 
-                        Text(
-                            "%.2f%%".format(
-                                row.changePercent
+                    drawLine(
+                        start = Offset(0f, zeroY),
+                        end = Offset(width, zeroY),
+                        strokeWidth = 2f
+                    )
+
+                    if (chartRows.size >= 2) {
+
+                        for (i in 0 until chartRows.lastIndex) {
+
+                            val x1 =
+                                i.toFloat() /
+                                    (chartRows.lastIndex)
+                                    .coerceAtLeast(1) *
+                                    width
+
+                            val x2 =
+                                (i + 1).toFloat() /
+                                    (chartRows.lastIndex)
+                                    .coerceAtLeast(1) *
+                                    width
+
+                            val y1 =
+                                height -
+                                    (((values[i] - minValue) / range) *
+                                        height)
+                                        .toFloat()
+
+                            val y2 =
+                                height -
+                                    (((values[i + 1] - minValue) / range) *
+                                        height)
+                                        .toFloat()
+
+                            drawLine(
+                                start = Offset(x1, y1),
+                                end = Offset(x2, y2),
+                                strokeWidth = 5f
                             )
-                        )
-
-                        Spacer(
-                            Modifier.height(4.dp)
-                        )
-
-                        Text(
-                            formatDate(row.observedAt)
-                        )
+                        }
                     }
+                }
 
-                    Spacer(
-                        Modifier.height(
-                            width.coerceAtMost(24).dp
-                        )
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "کمینه: %.2f%%".format(minValue)
+                    )
+
+                    Text(
+                        "بیشینه: %.2f%%".format(maxValue)
                     )
                 }
+
+                Spacer(Modifier.height(8.dp))
+
+                val latest = values.last()
+
+                Text(
+                    "آخرین مقدار: %.2f%%".format(latest)
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                Text(
+                    when {
+                        latest > 0 -> "روند فعلی: صعودی ↗"
+                        latest < 0 -> "روند فعلی: نزولی ↘"
+                        else -> "روند فعلی: خنثی →"
+                    }
+                )
             }
         }
     }
 }
-
 @Composable
 fun NewsScreen(
     symbols: List<String>,
