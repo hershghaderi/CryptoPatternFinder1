@@ -28,9 +28,33 @@ jobs:
       - name: Build APK
         run: gradle assembleDebug
 
+      - name: Find APK
+        run: |
+          echo "===== APK FILES ====="
+          find . -type f -name "*.apk" -print
+          echo "===================="
+
+      - name: Verify APK
+        run: |
+          APK=$(find . -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No APK was generated."
+            exit 1
+          fi
+
+          echo "APK FOUND:"
+          echo "$APK"
+
+          mkdir -p release
+          cp "$APK" release/app-debug.apk
+
+          echo "===== RELEASE ====="
+          ls -lh release/app-debug.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: CryptoPatternFinder-APK
+          path: release/app-debug.apk
           if-no-files-found: error
