@@ -45,6 +45,8 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 
 class MainActivity : ComponentActivity() {
 
