@@ -1,18 +1,73 @@
+package com.cryptopatternfinder
+
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.cryptopatternfinder.core.Observation
+import com.cryptopatternfinder.core.PatternEngine
+import com.cryptopatternfinder.data.Store
+import com.cryptopatternfinder.ocr.OcrParser
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+class MainActivity : ComponentActivity() {
+
+    override fun onCreate(state: Bundle?) {
+        super.onCreate(state)
+
+        setContent {
+            App(Store(this))
+        }
+    }
+}
+
+@Composable
 fun App(store: Store) {
 
     var tab by remember { mutableIntStateOf(0) }
     var exchange by remember { mutableStateOf("") }
     var selectedSymbol by remember { mutableStateOf("") }
-
     var message by remember {
-        mutableStateOf(
-            "نام صرافی را وارد کن و سپس اسکرین‌شات را انتخاب کن."
-        )
+        mutableStateOf("نام صرافی را وارد کن و سپس اسکرین‌شات را اضافه کن.")
     }
 
-    val data = remember {
-        mutableStateListOf<Observation>()
-    }
+    val data = remember { mutableStateListOf<Observation>() }
 
     fun refresh() {
         data.clear()
@@ -28,62 +83,52 @@ fun App(store: Store) {
         .distinct()
         .sorted()
 
-    val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
+    val picker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
 
-        if (uri == null) return@rememberLauncherForActivityResult
+            if (uri == null) return@rememberLauncherForActivityResult
 
-        if (exchange.isBlank()) {
-            message = "اول نام صرافی را وارد کن."
-            return@rememberLauncherForActivityResult
-        }
+            try {
 
-        try {
-
-            val image = InputImage.fromFilePath(
-                store.appContext,
-                uri
-            )
-
-            TextRecognition
-                .getClient(
-                    TextRecognizerOptions.DEFAULT_OPTIONS
+                val image = InputImage.fromFilePath(
+                    store.appContext,
+                    uri
                 )
-                .process(image)
-                .addOnSuccessListener { result ->
 
-                    val rows = OcrParser.parse(
-                        result.text,
-                        exchange.trim(),
-                        LocalDateTime.now()
-                    )
+                TextRecognition
+                    .getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    .process(image)
+                    .addOnSuccessListener { result ->
 
-                    rows.forEach { observation ->
-                        store.insert(observation)
+                        val rows = OcrParser.parse(
+                            result.text,
+                            exchange.ifBlank { "نامشخص" },
+                            LocalDateTime.now()
+                        )
+
+                        rows.forEach { observation ->
+                            store.insert(observation)
+                        }
+
+                        refresh()
+
+                        message =
+                            if (rows.isEmpty()) {
+                                "ارزی از این اسکرین‌شات شناسایی نشد."
+                            } else {
+                                "${rows.size} ارز شناسایی و ذخیره شد."
+                            }
+                    }
+                    .addOnFailureListener { error ->
+                        message = "خطا در OCR: ${error.message}"
                     }
 
-                    refresh()
-
-                    message =
-                        if (rows.isEmpty()) {
-                            "ارزی از تصویر شناسایی نشد."
-                        } else {
-                            "${rows.size} ارز از صرافی ${exchange.trim()} ذخیره شد."
-                        }
-                }
-                .addOnFailureListener { error ->
-
-                    message =
-                        "خطا در OCR: ${error.message ?: "خطای نامشخص"}"
-                }
-
-        } catch (e: Exception) {
-
-            message =
-                "خطا در باز کردن تصویر: ${e.message ?: "خطای نامشخص"}"
+            } catch (e: Exception) {
+                message = "خطا: ${e.message}"
+            }
         }
-    }
 
     MaterialTheme {
 
@@ -105,13 +150,9 @@ fun App(store: Store) {
 
                         NavigationBarItem(
                             selected = tab == index,
-                            onClick = {
-                                tab = index
-                            },
+                            onClick = { tab = index },
                             icon = {},
-                            label = {
-                                Text(name)
-                            }
+                            label = { Text(name) }
                         )
                     }
                 }
@@ -121,9 +162,9 @@ fun App(store: Store) {
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
                     .padding(padding)
                     .padding(16.dp)
+                    .fillMaxSize()
             ) {
 
                 Text(
@@ -132,7 +173,7 @@ fun App(store: Store) {
                 )
 
                 Spacer(
-                    Modifier.height(12.dp)
+                    modifier = Modifier.height(16.dp)
                 )
 
                 when (tab) {
@@ -180,4 +221,575 @@ fun App(store: Store) {
             }
         }
     }
+}
+
+@Composable
+fun RegistrationScreen(
+    exchange: String,
+    onExchangeChange: (String) -> Unit,
+    message: String,
+    onPickImage: () -> Unit,
+    totalRecords: Int
+) {
+
+    Text(
+        "📥 ثبت اطلاعات",
+        style = MaterialTheme.typography.titleLarge
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    OutlinedTextField(
+        value = exchange,
+        onValueChange = onExchangeChange,
+        label = {
+            Text("نام صرافی")
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    Button(
+        onClick = onPickImage,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("📸 افزودن اسکرین‌شات")
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    Text(message)
+
+    Spacer(Modifier.height(16.dp))
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+
+            Text(
+                "وضعیت ذخیره‌سازی",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                "رکوردهای ذخیره‌شده: $totalRecords"
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                "هر اسکرین‌شات با نام صرافی و زمان ثبت می‌شود."
+            )
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    Text(
+        "برای تشخیص بهتر ارز، نمادهایی مانند BTC، ETH، XRP، SOL و سایر نمادهای معتبر از متن تصویر استخراج می‌شوند."
+    )
+}
+
+@Composable
+fun AnalysisScreen(
+    data: List<Observation>,
+    symbols: List<String>,
+    selectedSymbol: String,
+    onSymbolSelected: (String) -> Unit
+) {
+
+    Text(
+        "📈 تحلیل و چارت",
+        style = MaterialTheme.typography.titleLarge
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    if (symbols.isEmpty()) {
+
+        Text(
+            "ابتدا چند اسکرین‌شات قیمت ثبت کن."
+        )
+
+        return
+    }
+
+    Text("انتخاب ارز:")
+
+    Spacer(Modifier.height(8.dp))
+
+    LazyColumn(
+        modifier = Modifier.height(180.dp)
+    ) {
+
+        items(symbols) { symbol ->
+
+            OutlinedButton(
+                onClick = {
+                    onSymbolSelected(symbol)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Text(
+                    if (selectedSymbol == symbol) {
+                        "✓ $symbol"
+                    } else {
+                        symbol
+                    }
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    if (selectedSymbol.isBlank()) {
+
+        Text(
+            "یک ارز انتخاب کن تا اطلاعات، روند و چارت آن نمایش داده شود."
+        )
+
+    } else {
+
+        val rows = data
+            .filter {
+                it.symbol == selectedSymbol
+            }
+            .sortedBy {
+                it.observedAt
+            }
+
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+
+                Text(
+                    selectedSymbol,
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    "تعداد مشاهدات: ${rows.size}"
+                )
+
+                if (rows.isNotEmpty()) {
+
+                    Spacer(Modifier.height(6.dp))
+
+                    val latest = rows.last()
+
+                    Text(
+                        "آخرین تغییر: %.2f%%".format(
+                            latest.changePercent
+                        )
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        "صرافی: ${latest.exchange}"
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        "آخرین ثبت: ${formatDate(latest.observedAt)}"
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        PriceChart(rows)
+
+        Spacer(Modifier.height(12.dp))
+
+        if (rows.size >= 3) {
+
+            val average =
+                rows.map {
+                    it.changePercent
+                }.average()
+
+            Text(
+                "میانگین تغییر: %.2f%%".format(average)
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            val positive =
+                rows.count {
+                    it.changePercent > 0
+                }
+
+            val negative =
+                rows.count {
+                    it.changePercent < 0
+                }
+
+            Text(
+                "مثبت: $positive  |  منفی: $negative"
+            )
+
+        } else {
+
+            Text(
+                "برای تحلیل روند، داده تاریخی بیشتری ثبت کن."
+            )
+        }
+    }
+}
+
+@Composable
+fun PriceChart(
+    rows: List<Observation>
+) {
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+
+            Text(
+                "📊 نمودار تغییرات",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            if (rows.isEmpty()) {
+
+                Text("داده‌ای برای نمودار وجود ندارد.")
+
+            } else {
+
+                val maxAbs = rows
+                    .maxOf {
+                        kotlin.math.abs(it.changePercent)
+                    }
+                    .coerceAtLeast(1.0)
+
+                rows.takeLast(12).forEach { row ->
+
+                    val width =
+                        ((kotlin.math.abs(row.changePercent) / maxAbs) * 220)
+                            .toInt()
+                            .coerceAtLeast(4)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+
+                        Text(
+                            "%.2f%%".format(
+                                row.changePercent
+                            )
+                        )
+
+                        Spacer(
+                            Modifier.height(4.dp)
+                        )
+
+                        Text(
+                            formatDate(row.observedAt)
+                        )
+                    }
+
+                    Spacer(
+                        Modifier.height(
+                            width.coerceAtMost(24).dp
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NewsScreen(
+    symbols: List<String>,
+    selectedSymbol: String,
+    onSymbolSelected: (String) -> Unit
+) {
+
+    Text(
+        "📰 اخبار ارز",
+        style = MaterialTheme.typography.titleLarge
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    if (symbols.isEmpty()) {
+
+        Text(
+            "ابتدا ارزها را از اسکرین‌شات ثبت کن."
+        )
+
+        return
+    }
+
+    Text("ارز مورد نظر:")
+
+    Spacer(Modifier.height(8.dp))
+
+    symbols.forEach { symbol ->
+
+        OutlinedButton(
+            onClick = {
+                onSymbolSelected(symbol)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Text(
+                if (selectedSymbol == symbol) {
+                    "✓ $symbol"
+                } else {
+                    symbol
+                }
+            )
+        }
+
+        Spacer(Modifier.height(4.dp))
+    }
+
+    if (selectedSymbol.isNotBlank()) {
+
+        Spacer(Modifier.height(12.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+
+                Text(
+                    "اخبار مرتبط با $selectedSymbol",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    "برای دریافت اخبار واقعی، این بخش باید به منبع خبری یا API متصل شود."
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    "فعلاً انتخاب ارز فعال است و نماد انتخاب‌شده آماده اتصال به اخبار است."
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun NewsImpactScreen(
+    data: List<Observation>,
+    symbols: List<String>,
+    selectedSymbol: String,
+    onSymbolSelected: (String) -> Unit
+) {
+
+    Text(
+        "📊 تأثیر اخبار بر نوسانات",
+        style = MaterialTheme.typography.titleLarge
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    if (symbols.isEmpty()) {
+
+        Text(
+            "برای تحلیل تأثیر اخبار، ابتدا داده قیمت ثبت کن."
+        )
+
+        return
+    }
+
+    symbols.forEach { symbol ->
+
+        OutlinedButton(
+            onClick = {
+                onSymbolSelected(symbol)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Text(
+                if (selectedSymbol == symbol) {
+                    "✓ $symbol"
+                } else {
+                    symbol
+                }
+            )
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    if (selectedSymbol.isBlank()) {
+
+        Text(
+            "یک ارز انتخاب کن."
+        )
+
+    } else {
+
+        val rows = data.filter {
+            it.symbol == selectedSymbol
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+
+                Text(
+                    "تحلیل $selectedSymbol",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    "تعداد داده‌ها: ${rows.size}"
+                )
+
+                if (rows.isNotEmpty()) {
+
+                    val average =
+                        rows.map {
+                            it.changePercent
+                        }.average()
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        "میانگین نوسان: %.2f%%".format(
+                            average
+                        )
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        if (average > 0) {
+                            "روند داده‌های ثبت‌شده بیشتر مثبت است."
+                        } else if (average < 0) {
+                            "روند داده‌های ثبت‌شده بیشتر منفی است."
+                        } else {
+                            "روند ثبت‌شده تقریباً خنثی است."
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HistoryScreen(
+    data: List<Observation>
+) {
+
+    Text(
+        "📚 تاریخچه قیمت",
+        style = MaterialTheme.typography.titleLarge
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    Text(
+        "داده‌ها بر اساس ارز و زمان ثبت نمایش داده می‌شوند."
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    if (data.isEmpty()) {
+
+        Text(
+            "هنوز داده‌ای ثبت نشده است."
+        )
+
+        return
+    }
+
+    LazyColumn {
+
+        items(data.sortedByDescending { it.observedAt }) { observation ->
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            ) {
+
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+
+                    Text(
+                        observation.symbol,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        "صرافی: ${observation.exchange}"
+                    )
+
+                    Text(
+                        "تغییر: %.2f%%".format(
+                            observation.changePercent
+                        )
+                    )
+
+                    Text(
+                        "تاریخ ثبت: ${formatDate(observation.observedAt)}"
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatDate(
+    date: LocalDateTime
+): String {
+
+    return date.format(
+        DateTimeFormatter.ofPattern(
+            "yyyy/MM/dd  HH:mm"
+        )
+    )
 }
