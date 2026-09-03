@@ -237,7 +237,7 @@ object OcrParser {
             result += Observation(
                 exchange = exchange.ifBlank { "نامشخص" },
                 symbol = symbol,
-                name = findName(line, symbol),
+                name = findName(line, symbol ?: "UNKNOWN"),
                 observedAt = seen,
                 changePercent = change
             )
