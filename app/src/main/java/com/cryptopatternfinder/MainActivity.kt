@@ -1,68 +1,60 @@
-2s
-1s
-0s
-19s
-31s
-Run gradle assembleDebug
-Starting a Gradle Daemon (subsequent builds will be faster)
-> Task :app:preBuild UP-TO-DATE
-> Task :app:preDebugBuild UP-TO-DATE
-> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :app:generateDebugResValues
-> Task :app:checkDebugAarMetadata
-> Task :app:mapDebugSourceSetPaths
-> Task :app:generateDebugResources
-> Task :app:packageDebugResources
-> Task :app:mergeDebugResources
-> Task :app:createDebugCompatibleScreenManifests
-> Task :app:extractDeepLinksDebug
-> Task :app:parseDebugLocalResources
-> Task :app:processDebugMainManifest
-> Task :app:processDebugManifest
-> Task :app:javaPreCompileDebug
-> Task :app:mergeDebugShaders
-> Task :app:compileDebugShaders NO-SOURCE
-> Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:mergeDebugAssets
-> Task :app:desugarDebugFileDependencies
-> Task :app:compressDebugAssets
-> Task :app:processDebugManifestForPackage
-> Task :app:checkDebugDuplicateClasses
-> Task :app:mergeDebugJniLibFolders
-> Task :app:mergeLibDexDebug
-> Task :app:mergeDebugNativeLibs
-> Task :app:processDebugResources
-> Task :app:validateSigningDebug
-> Task :app:writeDebugAppMetadata
-> Task :app:writeDebugSigningConfigVersions
+package com.cryptopatternfinder
 
-> Task :app:stripDebugDebugSymbols
-Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libmlkit_google_ocr_pipeline.so.
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.cryptopatternfinder.core.Observation
+import com.cryptopatternfinder.core.PatternEngine
+import com.cryptopatternfinder.data.Store
+import com.cryptopatternfinder.ocr.OcrParser
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
-> Task :app:mergeExtDexDebug
+class MainActivity : ComponentActivity() {
 
-e: file:///home/runner/work/CryptoPatternFinder1/CryptoPatternFinder1/app/src/main/java/com/cryptopatternfinder/MainActivity.kt:250:26 Unresolved reference 'NewsImpactScreen'.
-e: file:///home/runner/work/CryptoPatternFinder1/CryptoPatternFinder1/app/src/main/java/com/cryptopatternfinder/MainActivity.kt:255:46 Unresolved reference 'it'.
-e: file:///home/runner/work/CryptoPatternFinder1/CryptoPatternFinder1/app/src/main/java/com/cryptopatternfinder/MainActivity.kt:259:26 Unresolved reference 'HistoryScreen'.
-e: file:///home/runner/work/CryptoPatternFinder1/CryptoPatternFinder1/app/src/main/java/com/cryptopatternfinder/MainActivity.kt:587:27 Unresolved reference 'formatDate'.
-e: file:///home/runner/work/CryptoPatternFinder1/CryptoPatternFinder1/app/src/main/java/com/cryptopatternfinder/MainActivity.kt:635:16 Syntax error: Expecting an expression.
-> Task :app:compileDebugKotlin FAILED
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1788452715335.json
+    override fun onCreate(state: Bundle?) {
+        super.onCreate(state)
 
-28 actionable tasks: 28 executed
-FAILURE: Build failed with an exception.
+        setContent {
+            App(Store(this))
+        }
+    }
+}
 
-* What went wrong:
-Execution failed for task ':app:compileDebugKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
-
-BUILD FAILED in 30s
-Error: Process completed with exit code 1.
+@Composable
