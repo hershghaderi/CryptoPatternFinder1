@@ -84,23 +84,13 @@ object OcrParser {
         "EOS" to "EOS"
     )
 
-    /*
-     * فقط نمادهای واقعی را قبول می‌کنیم.
-     * این باعث می‌شود چیزهایی مثل USD، 24H، PRICE و متن‌های تصادفی
-     * به عنوان ارز ذخیره نشوند.
-     */
-    private val validSymbols = knownSymbols.values
-        .distinct()
-        .toSet()
+    private val validSymbols =
+        knownSymbols.values.distinct().toSet()
 
     private val percentRegex = Regex(
         """([+-]?\d+(?:[.,]\d+)?)\s*[%٪]"""
     )
 
-    /*
-     * حالت‌هایی که OCR علامت درصد را حذف کرده است.
-     * فقط اعداد دارای علامت + یا - را بررسی می‌کنیم.
-     */
     private val signedNumberRegex = Regex(
         """([+-]\s*\d+(?:[.,]\d+)?)"""
     )
@@ -114,36 +104,37 @@ object OcrParser {
             .replace('—', '-')
             .replace('﹣', '-')
             .replace('|', 'I')
-            .replace('O', '0')
             .replace(Regex("""\s+"""), " ")
             .trim()
     }
 
-    private fun findSymbol(line: String): String? {
-        val normalized = normalize(line)
+    private fun findSymbol(text: String): String? {
 
-        // اول نام کامل ارزها؛ نام‌های طولانی‌تر اول بررسی شوند.
-        val entries = knownSymbols.entries.sortedByDescending { it.key.length }
+        val normalized = normalize(text)
+
+        val entries =
+            knownSymbols.entries.sortedByDescending { it.key.length }
 
         for ((name, symbol) in entries) {
-            val escaped = Regex.escape(name)
 
-            if (
-                Regex("""(?<![A-Z0-9])$escaped(?![A-Z0-9])""")
-                    .containsMatchIn(normalized)
-            ) {
+            val pattern =
+                Regex(
+                    """(?<![A-Z0-9])${Regex.escape(name)}(?![A-Z0-9])"""
+                )
+
+            if (pattern.containsMatchIn(normalized)) {
                 return symbol
             }
         }
 
-        // سپس Symbolهای شناخته‌شده
         for (symbol in validSymbols.sortedByDescending { it.length }) {
-            val escaped = Regex.escape(symbol)
 
-            if (
-                Regex("""(?<![A-Z0-9])$escaped(?![A-Z0-9])""")
-                    .containsMatchIn(normalized)
-            ) {
+            val pattern =
+                Regex(
+                    """(?<![A-Z0-9])${Regex.escape(symbol)}(?![A-Z0-9])"""
+                )
+
+            if (pattern.containsMatchIn(normalized)) {
                 return symbol
             }
         }
@@ -151,59 +142,57 @@ object OcrParser {
         return null
     }
 
-    private fun findChangePercent(line: String): Double? {
-        val normalized = normalize(line)
+    private fun findChangePercent(text: String): Double? {
 
-        // حالت مطمئن: عدد همراه با %
-        val percentages = percentRegex
-            .findAll(normalized)
-            .mapNotNull { match ->
-                match.groupValues[1]
-                    .replace(",", ".")
-                    .replace(" ", "")
-                    .toDoubleOrNull()
-            }
-            .filter { it in -100.0..1000.0 }
-            .toList()
+        val normalized = normalize(text)
+
+        val percentages =
+            percentRegex
+                .findAll(normalized)
+                .mapNotNull { match ->
+                    match.groupValues[1]
+                        .replace(",", ".")
+                        .replace(" ", "")
+                        .toDoubleOrNull()
+                }
+                .filter { it in -100.0..1000.0 }
+                .toList()
 
         if (percentages.isNotEmpty()) {
             return percentages.last()
         }
 
-        /*
-         * اگر OCR علامت % را حذف کرده باشد، فقط عدد علامت‌دار را قبول کن.
-         *
-         * بنابراین:
-         * BTC  +2.35   -> قبول
-         * BTC  -1.72   -> قبول
-         * BTC  104532  -> رد
-         * BTC  0.00012 -> رد
-         */
-        val signed = signedNumberRegex
-            .findAll(normalized)
-            .mapNotNull { match ->
-                match.groupValues[1]
-                    .replace(" ", "")
-                    .replace(",", ".")
-                    .toDoubleOrNull()
-            }
-            .filter { it in -100.0..1000.0 }
-            .toList()
+        val signed =
+            signedNumberRegex
+                .findAll(normalized)
+                .mapNotNull { match ->
+                    match.groupValues[1]
+                        .replace(" ", "")
+                        .replace(",", ".")
+                        .toDoubleOrNull()
+                }
+                .filter { it in -100.0..1000.0 }
+                .toList()
 
         return signed.lastOrNull()
     }
 
-    private fun findName(line: String, symbol: String): String {
+    private fun findName(
+        line: String,
+        symbol: String
+    ): String {
+
         val normalized = normalize(line)
 
-        val entry = knownSymbols.entries
-            .sortedByDescending { it.key.length }
-            .firstOrNull { (name, mappedSymbol) ->
-                mappedSymbol == symbol &&
-                    Regex(
-                        """(?<![A-Z0-9])${Regex.escape(name)}(?![A-Z0-9])"""
-                    ).containsMatchIn(normalized)
-            }
+        val entry =
+            knownSymbols.entries
+                .sortedByDescending { it.key.length }
+                .firstOrNull { (name, mappedSymbol) ->
+                    mappedSymbol == symbol &&
+                        Regex(
+                            """(?<![A-Z0-9])${Regex.escape(name)}(?![A-Z0-9])"""
+                        ).containsMatchIn(normalized)
+                }
 
         return entry?.key
             ?.lowercase(Locale.US)
@@ -219,34 +208,68 @@ object OcrParser {
 
         val result = mutableListOf<Observation>()
 
-        for (rawLine in text.lines()) {
+        val lines =
+            text.lines()
+                .map { normalize(it) }
+                .filter { it.isNotBlank() }
 
-            val line = normalize(rawLine)
+        for (index in lines.indices) {
 
-            if (line.isBlank()) continue
+            val currentLine = lines[index]
 
-            val symbol = findSymbol(line)
+            val currentSymbol =
+                findSymbol(currentLine)
 
-            val change = findChangePercent(line) ?: continue
+            val currentChange =
+                findChangePercent(currentLine)
 
-            /*
-             * تغییرات غیرمنطقی حذف شوند.
-             */
-            if (change !in -100.0..1000.0) continue
+            if (
+                currentSymbol != null &&
+                currentChange != null &&
+                currentChange in -100.0..1000.0
+            ) {
 
-            result += Observation(
-                 exchange = exchange.ifBlank { "نامشخص" },
-                 symbol = symbol ?: "UNKNOWN",
-                 name = findName(line, symbol ?: "UNKNOWN"),
-                 observedAt = seen,
-                 changePercent = change
-)
+                result += Observation(
+                    exchange = exchange.ifBlank { "نامشخص" },
+                    symbol = currentSymbol,
+                    name = findName(currentLine, currentSymbol),
+                    observedAt = seen,
+                    changePercent = currentChange
+                )
+
+                continue
+            }
+
+            if (currentSymbol != null) {
+
+                val nextLine =
+                    lines.getOrNull(index + 1)
+
+                if (nextLine != null) {
+
+                    val nextChange =
+                        findChangePercent(nextLine)
+
+                    if (
+                        nextChange != null &&
+                        nextChange in -100.0..1000.0
+                    ) {
+
+                        result += Observation(
+                            exchange = exchange.ifBlank { "نامشخص" },
+                            symbol = currentSymbol,
+                            name = findName(
+                                "$currentLine $nextLine",
+                                currentSymbol
+                            ),
+                            observedAt = seen,
+                            changePercent = nextChange
+                        )
+                    }
+                }
+            }
         }
 
-        /*
-         * اگر OCR یک ارز را چند بار تشخیص داد،
-         * آخرین رکورد همان Symbol نگه داشته می‌شود.
-         */
         return result
             .asReversed()
             .distinctBy { it.symbol }
