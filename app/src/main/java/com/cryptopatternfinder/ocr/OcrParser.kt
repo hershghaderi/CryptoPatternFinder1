@@ -235,12 +235,12 @@ object OcrParser {
             if (change !in -100.0..1000.0) continue
 
             result += Observation(
-                exchange = exchange.ifBlank { "نامشخص" },
-                symbol ?: "UNKNOWN"
-                name = findName(line, symbol ?: "UNKNOWN"),
-                observedAt = seen,
-                changePercent = change
-            )
+                 exchange = exchange.ifBlank { "نامشخص" },
+                 symbol = symbol,
+                 name = findName(line, symbol),
+                 observedAt = seen,
+                 changePercent = change
+)
         }
 
         /*
