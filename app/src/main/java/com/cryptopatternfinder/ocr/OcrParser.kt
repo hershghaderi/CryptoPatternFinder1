@@ -149,4 +149,297 @@ object OcrParser {
             // درصد فارسی
             .replace('٪', '%')
 
-            // انواع
+            // انواع خط تیره OCR
+            .replace('−', '-')
+            .replace('–', '-')
+            .replace('—', '-')
+            .replace('﹣', '-')
+
+            // چند خطای رایج OCR
+            .replace('|', 'I')
+
+            // حذف فاصله‌های اضافی
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+    }
+
+    private fun compact(text: String): String {
+        return normalize(text)
+            .replace(" ", "")
+    }
+
+    /**
+     * پیدا کردن نماد ارز
+     */
+    private fun findSymbol(text: String): String? {
+
+        val normalized = compact(text)
+
+        /*
+         * اول نام‌ها و نمادهای طولانی‌تر بررسی می‌شوند
+         * تا مثلاً ETHEREUM قبل از ETH پیدا شود.
+         */
+        val entries = knownSymbols.entries
+            .sortedByDescending { it.key.replace(" ", "").length }
+
+        for ((name, symbol) in entries) {
+
+            val key = name.replace(" ", "")
+
+            if (normalized.contains(key)) {
+                return symbol
+            }
+        }
+
+        /*
+         * تعدادی خطای رایج OCR برای نمادهای مهم
+         *
+         * BТC / BTC
+         * ЕТН / ETH
+         * S0L / SOL
+         */
+        val ocrText = normalized
+            .replace('0', 'O')
+            .replace('1', 'I')
+
+        val commonOcrSymbols = mapOf(
+            "BTC" to "BTC",
+            "BТC" to "BTC",
+            "ETH" to "ETH",
+            "SOL" to "SOL",
+            "XRP" to "XRP",
+            "BNB" to "BNB",
+            "ADA" to "ADA",
+            "DOGE" to "DOGE",
+            "TON" to "TON",
+            "TRX" to "TRX",
+            "AVAX" to "AVAX",
+            "SHIB" to "SHIB",
+            "DOT" to "DOT",
+            "LINK" to "LINK",
+            "LTC" to "LTC",
+            "BCH" to "BCH",
+            "UNI" to "UNI",
+            "ATOM" to "ATOM",
+            "ETC" to "ETC",
+            "XLM" to "XLM",
+            "NEAR" to "NEAR",
+            "APT" to "APT",
+            "FIL" to "FIL",
+            "ARB" to "ARB",
+            "OP" to "OP",
+            "SUI" to "SUI",
+            "INJ" to "INJ",
+            "AAVE" to "AAVE",
+            "ALGO" to "ALGO",
+            "VET" to "VET",
+            "ICP" to "ICP",
+            "HBAR" to "HBAR",
+            "MKR" to "MKR",
+            "PEPE" to "PEPE",
+            "FLOKI" to "FLOKI",
+            "BONK" to "BONK",
+            "SEI" to "SEI",
+            "TIA" to "TIA",
+            "RUNE" to "RUNE",
+            "EOS" to "EOS"
+        )
+
+        for ((key, symbol) in commonOcrSymbols) {
+            if (ocrText.contains(key)) {
+                return symbol
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * پیدا کردن درصد تغییر
+     */
+    private fun findChangePercent(text: String): Double? {
+
+        val normalized = normalize(text)
+
+        /*
+         * روش اول:
+         * فقط عددی که واقعاً کنار % قرار گرفته.
+         */
+        val explicitPercent = percentRegex
+            .findAll(normalized)
+            .mapNotNull { match ->
+
+                match.groupValues[1]
+                    .replace(",", ".")
+                    .replace(" ", "")
+                    .toDoubleOrNull()
+            }
+            .lastOrNull { value ->
+                value in -100.0..1000.0
+            }
+
+        if (explicitPercent != null) {
+            return explicitPercent
+        }
+
+        /*
+         * روش دوم:
+         * اگر OCR علامت % را حذف کرده باشد.
+         *
+         * فقط اعداد دارای + یا - را بررسی می‌کنیم.
+         * اعداد بدون علامت اصلاً قبول نمی‌شوند.
+         */
+        val fallback = fallbackSignedNumberRegex
+            .findAll(normalized)
+            .mapNotNull { match ->
+
+                val sign = match.groupValues[1]
+                val number = match.groupValues[2]
+
+                val value =
+                    (sign + number)
+                        .replace(",", ".")
+                        .toDoubleOrNull()
+
+                value
+            }
+            .lastOrNull { value ->
+                value in -100.0..1000.0
+            }
+
+        return fallback
+    }
+
+    /**
+     * نام قابل نمایش ارز
+     */
+    private fun findName(
+        line: String,
+        symbol: String
+    ): String {
+
+        val normalized = compact(line)
+
+        val entry = knownSymbols.entries
+            .sortedByDescending {
+                it.key.replace(" ", "").length
+            }
+            .firstOrNull {
+
+                it.value == symbol &&
+                    normalized.contains(
+                        it.key.replace(" ", "")
+                    )
+            }
+
+        if (entry != null) {
+
+            return entry.key
+                .lowercase(Locale.US)
+                .replaceFirstChar {
+                    it.uppercase()
+                }
+        }
+
+        return symbol
+    }
+
+    /**
+     * تبدیل متن OCR به Observation
+     */
+    fun parse(
+        text: String,
+        exchange: String,
+        seen: LocalDateTime
+    ): List<Observation> {
+
+        val result = mutableListOf<Observation>()
+
+        /*
+         * متن را خط‌به‌خط تمیز می‌کنیم.
+         */
+        val lines = text
+            .lines()
+            .map { normalize(it) }
+            .filter { it.isNotBlank() }
+
+        for (index in lines.indices) {
+
+            val currentLine = lines[index]
+
+            val symbol =
+                findSymbol(currentLine)
+                    ?: continue
+
+            /*
+             * اول همان خط را بررسی می‌کنیم.
+             */
+            var change =
+                findChangePercent(currentLine)
+
+            /*
+             * اگر درصد در همان خط نبود،
+             * دو خط بعدی را هم بررسی می‌کنیم.
+             */
+            if (change == null) {
+
+                for (offset in 1..2) {
+
+                    val nextLine =
+                        lines.getOrNull(index + offset)
+                            ?: continue
+
+                    /*
+                     * اگر خط بعدی خودش یک ارز دیگر باشد،
+                     * دیگر به آن خط برای درصد این ارز اعتماد نمی‌کنیم.
+                     */
+                    val anotherSymbol =
+                        findSymbol(nextLine)
+
+                    if (
+                        anotherSymbol != null &&
+                        anotherSymbol != symbol
+                    ) {
+                        break
+                    }
+
+                    change =
+                        findChangePercent(nextLine)
+
+                    if (change != null) {
+                        break
+                    }
+                }
+            }
+
+            /*
+             * بدون درصد معتبر، رکورد ذخیره نمی‌کنیم.
+             */
+            if (change == null) {
+                continue
+            }
+
+            result += Observation(
+                exchange = exchange.ifBlank {
+                    "نامشخص"
+                },
+                symbol = symbol,
+                name = findName(
+                    currentLine,
+                    symbol
+                ),
+                observedAt = seen,
+                changePercent = change
+            )
+        }
+
+        /*
+         * اگر یک نماد چند بار در OCR دیده شد،
+         * فقط آخرین نتیجه آن نماد را نگه می‌داریم.
+         */
+        return result
+            .asReversed()
+            .distinctBy { it.symbol }
+            .asReversed()
+    }
+}
