@@ -113,9 +113,17 @@ fun App(store: Store) {
                         )
 
                         if (rows.isEmpty()) {
-                            message = "OCR:\n\n${result.text}"
-                            return@addOnSuccessListener
-                        }
+                            message = """
+OCR انجام شد.
+
+متن خام تشخیص‌داده‌شده:
+${result.text}
+
+تعداد رکوردهای استخراج‌شده: ${rows.size}
+
+صرافی:
+${exchange.ifBlank { "نامشخص" }}
+""".trimIndent()
 
                         rows.forEach { observation ->
                             store.insert(observation)
