@@ -110,8 +110,9 @@ fun App(store: Store) {
                             LocalDateTime.now()
     )
 
-                           if (rows.isEmpty()) {
-
+                           if (rows.isEmpty()) 
+    
+    }
                                message = "هیچ ارز قابل شناسایی پیدا نشد.\n\nOCR متن زیر را خواند:\n${result.text}"
 
                         return@addOnSuccessListener
