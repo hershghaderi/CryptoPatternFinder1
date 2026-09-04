@@ -45,6 +45,8 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 
 class MainActivity : ComponentActivity() {
 
@@ -96,6 +98,7 @@ fun App(store: Store) {
                 val image = InputImage.fromFilePath(
                     store.appContext,
                     uri
+                val clipboardManager = LocalClipboardManager.current
                 )
 
                 TextRecognition
