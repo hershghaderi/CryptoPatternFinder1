@@ -104,15 +104,23 @@ fun App(store: Store) {
                     .process(image)
                     .addOnSuccessListener { result ->
 
-                        val rows = OcrParser.parse(
-                            result.text,
-                            exchange.ifBlank { "نامشخص" },
-                            LocalDateTime.now()
-                        )
+                         val rows = OcrParser.parse(
+                             result.text,
+                             exchange.ifBlank { "نامشخص" },
+                             LocalDateTime.now()
+)
 
-                        rows.forEach { observation ->
-                            store.insert(observation)
-                        }
+                            if (rows.isEmpty()) {
+                                message = "OCR متن زیر را خواند:\n${result.text}"
+                         return@addOnSuccessListener
+}
+
+                      rows.forEach { observation ->
+                      store.insert(observation) 
+                      }
+}
+
+                    
 
                         refresh()
 
