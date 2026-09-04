@@ -104,15 +104,26 @@ fun App(store: Store) {
                     .process(image)
                     .addOnSuccessListener { result ->
 
-                         val rows = OcrParser.parse(
-                             result.text,
-                             exchange.ifBlank { "نامشخص" },
-                             LocalDateTime.now()
-)
+                        val rows = OcrParser.parse(
+                            result.text,
+                            exchange.ifBlank { "نامشخص" },
+                            LocalDateTime.now()
+    )
 
-                            if (rows.isEmpty()) {
-                                message = "OCR متن زیر را خواند:\n${result.text}"
-                         return@addOnSuccessListener
+                           if (rows.isEmpty()) {
+
+                               message = "هیچ ارز قابل شناسایی پیدا نشد.\n\nOCR متن زیر را خواند:\n${result.text}"
+
+                        return@addOnSuccessListener
+    }
+
+    rows.forEach { observation ->
+        store.insert(observation)
+    }
+
+    refresh()
+
+    message = "${rows.size} ارز شناسایی و ذخیره شد."
 }
 
                       rows.forEach { observation ->
