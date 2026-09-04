@@ -119,10 +119,8 @@ fun App(store: Store) {
         store.insert(observation)
     }
 
-    refresh()
-
-    message = "${rows.size} ارز شناسایی و ذخیره شد."
-}
+                 refresh()
+ "OCR:\n\n${result.text} متن"= message
                     .addOnFailureListener { error ->
                         message = "خطا در OCR: ${error.message}"
                     }
