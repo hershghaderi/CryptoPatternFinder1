@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -35,9 +35,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import com.cryptopatternfinder.core.Observation
-import com.cryptopatternfinder.core.PatternEngine
 import com.cryptopatternfinder.data.Store
 import com.cryptopatternfinder.ocr.OcrParser
 import com.google.mlkit.vision.common.InputImage
@@ -45,8 +45,6 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
 
 class MainActivity : ComponentActivity() {
 
@@ -90,10 +88,11 @@ fun App(store: Store) {
             ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
 
-            if (uri == null) return@rememberLauncherForActivityResult
+            if (uri == null) {
+                return@rememberLauncherForActivityResult
+            }
 
             try {
-
                 val image = InputImage.fromFilePath(
                     store.appContext,
                     uri
@@ -108,19 +107,21 @@ fun App(store: Store) {
                             result.text,
                             exchange.ifBlank { "نامشخص" },
                             LocalDateTime.now()
-    )
+                        )
 
-                           if (rows.isEmpty()) {
-                     message =result.text
-               return@addOnSuccessListener
-    }
+                        if (rows.isEmpty()) {
+                            message = "OCR:\n\n${result.text}"
+                            return@addOnSuccessListener
+                        }
 
-    rows.forEach { observation ->
-        store.insert(observation)
-    }
+                        rows.forEach { observation ->
+                            store.insert(observation)
+                        }
 
-                 refresh()
- "OCR:\n\n${result.text} متن"= message
+                        refresh()
+                        message = "OCR:\n\n${result.text} متن"
+
+                    }
                     .addOnFailureListener { error ->
                         message = "خطا در OCR: ${error.message}"
                     }
@@ -461,9 +462,11 @@ fun AnalysisScreen(
 fun PriceChart(
     rows: List<Observation>
 ) {
+
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
+
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
@@ -494,8 +497,12 @@ fun PriceChart(
 
                 val range = (maxValue - minValue)
                     .coerceAtLeast(1.0)
-                val outlineColor = MaterialTheme.colorScheme.outline
-                val primaryColor = MaterialTheme.colorScheme.primary
+
+                val outlineColor =
+                    MaterialTheme.colorScheme.outline
+
+                val primaryColor =
+                    MaterialTheme.colorScheme.primary
 
                 Canvas(
                     modifier = Modifier
@@ -506,18 +513,17 @@ fun PriceChart(
                     val width = size.width
                     val height = size.height
 
-                    // خط صفر
                     val zeroY =
                         height -
                             (((0.0 - minValue) / range) * height)
                                 .toFloat()
                                 .coerceIn(0f, height)
+
                     drawLine(
                         color = outlineColor,
                         start = Offset(0f, zeroY),
                         end = Offset(width, zeroY),
                         strokeWidth = 2f
-                   
                     )
 
                     if (chartRows.size >= 2) {
@@ -526,14 +532,14 @@ fun PriceChart(
 
                             val x1 =
                                 i.toFloat() /
-                                    (chartRows.lastIndex)
-                                    .coerceAtLeast(1) *
+                                    chartRows.lastIndex
+                                        .coerceAtLeast(1) *
                                     width
 
                             val x2 =
                                 (i + 1).toFloat() /
-                                    (chartRows.lastIndex)
-                                    .coerceAtLeast(1) *
+                                    chartRows.lastIndex
+                                        .coerceAtLeast(1) *
                                     width
 
                             val y1 =
@@ -547,12 +553,12 @@ fun PriceChart(
                                     (((values[i + 1] - minValue) / range) *
                                         height)
                                         .toFloat()
-                           drawLine(
-                               color = primaryColor,
-                               start = Offset(x1, y1),
-                               end = Offset(x2, y2),
-                               strokeWidth = 5f
 
+                            drawLine(
+                                color = primaryColor,
+                                start = Offset(x1, y1),
+                                end = Offset(x2, y2),
+                                strokeWidth = 5f
                             )
                         }
                     }
@@ -564,6 +570,7 @@ fun PriceChart(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+
                     Text(
                         "کمینه: %.2f%%".format(minValue)
                     )
@@ -594,6 +601,7 @@ fun PriceChart(
         }
     }
 }
+
 @Composable
 fun NewsScreen(
     symbols: List<String>,
@@ -812,7 +820,11 @@ fun HistoryScreen(
 
     LazyColumn {
 
-        items(data.sortedByDescending { it.observedAt }) { observation ->
+        items(
+            data.sortedByDescending {
+                it.observedAt
+            }
+        ) { observation ->
 
             Card(
                 modifier = Modifier
