@@ -117,7 +117,6 @@ fun App(store: Store) {
 
                       rows.forEach { observation ->
                       store.insert(observation) 
-                      }
 }
 
                     
