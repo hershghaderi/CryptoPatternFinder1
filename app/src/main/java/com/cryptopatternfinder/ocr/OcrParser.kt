@@ -84,16 +84,11 @@ object OcrParser {
         "EOS" to "EOS"
     )
 
-    private val validSymbols =
-        knownSymbols.values.distinct().toSet()
+    private val percentRegex =
+        Regex("""([+-]?\d+(?:[.,]\d+)?)\s*[%٪]""")
 
-    private val percentRegex = Regex(
-        """([+-]?\d+(?:[.,]\d+)?)\s*[%٪]"""
-    )
-
-    private val signedNumberRegex = Regex(
-        """([+-]\s*\d+(?:[.,]\d+)?)"""
-    )
+    private val signedNumberRegex =
+        Regex("""([+-]\s*\d+(?:[.,]\d+)?)""")
 
     private fun normalize(text: String): String {
         return text
@@ -112,29 +107,10 @@ object OcrParser {
 
         val normalized = normalize(text)
 
-        val entries =
-            knownSymbols.entries.sortedByDescending { it.key.length }
+        for ((name, symbol) in
+            knownSymbols.entries.sortedByDescending { it.key.length }) {
 
-        for ((name, symbol) in entries) {
-
-            val pattern =
-                Regex(
-                    """(?<![A-Z0-9])${Regex.escape(name)}(?![A-Z0-9])"""
-                )
-
-            if (pattern.containsMatchIn(normalized)) {
-                return symbol
-            }
-        }
-
-        for (symbol in validSymbols.sortedByDescending { it.length }) {
-
-            val pattern =
-                Regex(
-                    """(?<![A-Z0-9])${Regex.escape(symbol)}(?![A-Z0-9])"""
-                )
-
-            if (pattern.containsMatchIn(normalized)) {
+            if (normalized.contains(name)) {
                 return symbol
             }
         }
@@ -146,35 +122,34 @@ object OcrParser {
 
         val normalized = normalize(text)
 
-        val percentages =
+        val percent =
             percentRegex
                 .findAll(normalized)
-                .mapNotNull { match ->
-                    match.groupValues[1]
+                .mapNotNull {
+                    it.groupValues[1]
                         .replace(",", ".")
                         .replace(" ", "")
                         .toDoubleOrNull()
                 }
-                .filter { it in -100.0..1000.0 }
-                .toList()
+                .lastOrNull {
+                    it in -100.0..1000.0
+                }
 
-        if (percentages.isNotEmpty()) {
-            return percentages.last()
+        if (percent != null) {
+            return percent
         }
 
-        val signed =
-            signedNumberRegex
-                .findAll(normalized)
-                .mapNotNull { match ->
-                    match.groupValues[1]
-                        .replace(" ", "")
-                        .replace(",", ".")
-                        .toDoubleOrNull()
-                }
-                .filter { it in -100.0..1000.0 }
-                .toList()
-
-        return signed.lastOrNull()
+        return signedNumberRegex
+            .findAll(normalized)
+            .mapNotNull {
+                it.groupValues[1]
+                    .replace(",", ".")
+                    .replace(" ", "")
+                    .toDoubleOrNull()
+            }
+            .lastOrNull {
+                it in -100.0..1000.0
+            }
     }
 
     private fun findName(
@@ -182,17 +157,11 @@ object OcrParser {
         symbol: String
     ): String {
 
-        val normalized = normalize(line)
-
         val entry =
-            knownSymbols.entries
-                .sortedByDescending { it.key.length }
-                .firstOrNull { (name, mappedSymbol) ->
-                    mappedSymbol == symbol &&
-                        Regex(
-                            """(?<![A-Z0-9])${Regex.escape(name)}(?![A-Z0-9])"""
-                        ).containsMatchIn(normalized)
-                }
+            knownSymbols.entries.firstOrNull {
+                it.value == symbol &&
+                    normalize(line).contains(it.key)
+            }
 
         return entry?.key
             ?.lowercase(Locale.US)
@@ -206,7 +175,8 @@ object OcrParser {
         seen: LocalDateTime
     ): List<Observation> {
 
-        val result = mutableListOf<Observation>()
+        val result =
+            mutableListOf<Observation>()
 
         val lines =
             text.lines()
@@ -215,59 +185,48 @@ object OcrParser {
 
         for (index in lines.indices) {
 
-            val currentLine = lines[index]
+            val line = lines[index]
 
-            val currentSymbol =
-                findSymbol(currentLine)
+            val symbol =
+                findSymbol(line)
 
-            val currentChange =
-                findChangePercent(currentLine)
-
-            if (
-                currentSymbol != null &&
-                currentChange != null &&
-                currentChange in -100.0..1000.0
-            ) {
-
-                result += Observation(
-                    exchange = exchange.ifBlank { "نامشخص" },
-                    symbol = currentSymbol,
-                    name = findName(currentLine, currentSymbol),
-                    observedAt = seen,
-                    changePercent = currentChange
-                )
-
+            if (symbol == null) {
                 continue
             }
 
-            if (currentSymbol != null) {
+            var change =
+                findChangePercent(line)
 
-                val nextLine =
-                    lines.getOrNull(index + 1)
+            if (change == null) {
 
-                if (nextLine != null) {
+                for (offset in 1..2) {
 
-                    val nextChange =
-                        findChangePercent(nextLine)
+                    val next =
+                        lines.getOrNull(index + offset)
 
-                    if (
-                        nextChange != null &&
-                        nextChange in -100.0..1000.0
-                    ) {
+                    if (next != null) {
 
-                        result += Observation(
-                            exchange = exchange.ifBlank { "نامشخص" },
-                            symbol = currentSymbol,
-                            name = findName(
-                                "$currentLine $nextLine",
-                                currentSymbol
-                            ),
-                            observedAt = seen,
-                            changePercent = nextChange
-                        )
+                        change =
+                            findChangePercent(next)
+
+                        if (change != null) {
+                            break
+                        }
                     }
                 }
             }
+
+            if (change == null) {
+                continue
+            }
+
+            result += Observation(
+                exchange = exchange.ifBlank { "نامشخص" },
+                symbol = symbol,
+                name = findName(line, symbol),
+                observedAt = seen,
+                changePercent = change
+            )
         }
 
         return result
