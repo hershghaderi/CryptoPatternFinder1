@@ -111,10 +111,8 @@ fun App(store: Store) {
     )
 
                            if (rows.isEmpty()) {
-                               message =
-                                "هیچ ارز قابل شناسایی پیدا نشد.\n\nOCR متن زیر را خواند:\n${result.text}"
-
-                      return@addOnSuccessListener
+                     message =result.text
+               return@addOnSuccessListener
     }
 
     rows.forEach { observation ->
