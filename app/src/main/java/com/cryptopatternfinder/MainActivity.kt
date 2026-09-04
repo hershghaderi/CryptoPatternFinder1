@@ -36,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.cryptopatternfinder.core.Observation
 import com.cryptopatternfinder.data.Store
@@ -45,8 +47,6 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 
 class MainActivity : ComponentActivity() {
 
@@ -95,11 +95,13 @@ fun App(store: Store) {
             }
 
             try {
+
                 val image = InputImage.fromFilePath(
                     store.appContext,
                     uri
-                val clipboardManager = LocalClipboardManager.current
                 )
+
+                message = "در حال خواندن اسکرین‌شات..."
 
                 TextRecognition
                     .getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
@@ -112,17 +114,23 @@ fun App(store: Store) {
                             LocalDateTime.now()
                         )
 
-                        if (rows.isEmpty()) {
-                            message = """OCR انجام شد.متن خام تشخیص‌داده‌شده:${result.text}
-                                           تعداد رکوردهای استخراج‌شده: ${rows.size}صرافی:${exchange.ifBlank { "نامشخص" }}""".trimIndent()
-
                         rows.forEach { observation ->
                             store.insert(observation)
                         }
 
                         refresh()
-                        message = "OCR:\n\n${result.text} متن"
 
+                        message = """
+OCR انجام شد.
+
+متن خام تشخیص‌داده‌شده:
+${result.text}
+
+تعداد رکوردهای استخراج‌شده: ${rows.size}
+
+صرافی:
+${exchange.ifBlank { "نامشخص" }}
+""".trimIndent()
                     }
                     .addOnFailureListener { error ->
                         message = "خطا در OCR: ${error.message}"
@@ -235,6 +243,8 @@ fun RegistrationScreen(
     totalRecords: Int
 ) {
 
+    val clipboardManager = LocalClipboardManager.current
+
     Text(
         "📥 ثبت اطلاعات",
         style = MaterialTheme.typography.titleLarge
@@ -264,18 +274,18 @@ fun RegistrationScreen(
 
     Text(message)
 
-Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(8.dp))
 
-Button(
-    onClick = {
-        clipboardManager.setText(
-            AnnotatedString(message)
-        )
-    },
-    modifier = Modifier.fillMaxWidth()
-) {
-    Text("📋 کپی متن OCR")
-}
+    Button(
+        onClick = {
+            clipboardManager.setText(
+                AnnotatedString(message)
+            )
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("📋 کپی متن OCR")
+    }
 
     Spacer(Modifier.height(16.dp))
 
