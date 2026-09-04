@@ -265,6 +265,19 @@ fun RegistrationScreen(
 
     Text(message)
 
+Spacer(Modifier.height(8.dp))
+
+Button(
+    onClick = {
+        clipboardManager.setText(
+            AnnotatedString(message)
+        )
+    },
+    modifier = Modifier.fillMaxWidth()
+) {
+    Text("📋 کپی متن OCR")
+}
+
     Spacer(Modifier.height(16.dp))
 
     Card(
