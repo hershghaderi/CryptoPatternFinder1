@@ -110,12 +110,11 @@ fun App(store: Store) {
                             LocalDateTime.now()
     )
 
-                           if (rows.isEmpty()) 
-    
-    }
-                               message = "هیچ ارز قابل شناسایی پیدا نشد.\n\nOCR متن زیر را خواند:\n${result.text}"
+                           if (rows.isEmpty()) {
+                               message =
+                                "هیچ ارز قابل شناسایی پیدا نشد.\n\nOCR متن زیر را خواند:\n${result.text}"
 
-                        return@addOnSuccessListener
+                      return@addOnSuccessListener
     }
 
     rows.forEach { observation ->
@@ -126,22 +125,6 @@ fun App(store: Store) {
 
     message = "${rows.size} ارز شناسایی و ذخیره شد."
 }
-
-                      rows.forEach { observation ->
-                      store.insert(observation) 
-}
-
-                    
-
-                        refresh()
-
-                        message =
-                            if (rows.isEmpty()) {
-                                "ارزی از این اسکرین‌شات شناسایی نشد."
-                            } else {
-                                "${rows.size} ارز شناسایی و ذخیره شد."
-                            }
-                    }
                     .addOnFailureListener { error ->
                         message = "خطا در OCR: ${error.message}"
                     }
