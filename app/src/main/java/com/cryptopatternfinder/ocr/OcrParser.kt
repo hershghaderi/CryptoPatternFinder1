@@ -6,436 +6,385 @@ import java.util.Locale
 
 object OcrParser {
 
-    private val knownSymbols = mapOf(
+    private val knownSymbols = linkedMapOf(
         "BITCOIN" to "BTC",
         "BTC" to "BTC",
-
         "ETHEREUM" to "ETH",
         "ETH" to "ETH",
-
         "BINANCECOIN" to "BNB",
         "BINANCE" to "BNB",
         "BNB" to "BNB",
-
         "SOLANA" to "SOL",
         "SOL" to "SOL",
-
         "RIPPLE" to "XRP",
         "XRP" to "XRP",
-
         "CARDANO" to "ADA",
         "ADA" to "ADA",
-
         "DOGECOIN" to "DOGE",
         "DOGE" to "DOGE",
-
         "TONCOIN" to "TON",
         "TON" to "TON",
-
         "TRON" to "TRX",
         "TRX" to "TRX",
-
         "AVALANCHE" to "AVAX",
         "AVAX" to "AVAX",
-
         "SHIBAINU" to "SHIB",
         "SHIBA INU" to "SHIB",
         "SHIB" to "SHIB",
-
         "POLKADOT" to "DOT",
         "DOT" to "DOT",
-
         "CHAINLINK" to "LINK",
         "LINK" to "LINK",
-
         "POLYGON" to "POL",
         "MATIC" to "MATIC",
         "POL" to "POL",
-
         "LITECOIN" to "LTC",
         "LTC" to "LTC",
-
         "BITCOINCASH" to "BCH",
         "BCH" to "BCH",
-
         "UNISWAP" to "UNI",
         "UNI" to "UNI",
-
         "COSMOS" to "ATOM",
         "ATOM" to "ATOM",
-
         "ETHEREUMCLASSIC" to "ETC",
         "ETC" to "ETC",
-
         "STELLAR" to "XLM",
         "XLM" to "XLM",
-
         "NEARPROTOCOL" to "NEAR",
         "NEAR" to "NEAR",
-
         "APTOS" to "APT",
         "APT" to "APT",
-
         "FILECOIN" to "FIL",
         "FIL" to "FIL",
-
         "ARBITRUM" to "ARB",
         "ARB" to "ARB",
-
         "OPTIMISM" to "OP",
         "OP" to "OP",
-
         "SUI" to "SUI",
-
         "INJECTIVE" to "INJ",
         "INJ" to "INJ",
-
         "AAVE" to "AAVE",
-
         "ALGORAND" to "ALGO",
         "ALGO" to "ALGO",
-
         "VECHAIN" to "VET",
         "VET" to "VET",
-
         "INTERNETCOMPUTER" to "ICP",
         "ICP" to "ICP",
-
         "HEDERAHASHGRAPH" to "HBAR",
         "HBAR" to "HBAR",
-
         "MAKER" to "MKR",
         "MKR" to "MKR",
-
         "PEPE" to "PEPE",
         "FLOKI" to "FLOKI",
         "BONK" to "BONK",
         "SEI" to "SEI",
         "TIA" to "TIA",
-
         "THORCHAIN" to "RUNE",
         "RUNE" to "RUNE",
-
         "EOS" to "EOS"
     )
 
-    /*
-     * فقط درصدهایی که علامت % یا ٪ دارند.
-     *
-     * مثال‌های معتبر:
-     * +2.5%
-     * -4.21%
-     * 2,5%
-     * +10 ٪
-     */
     private val percentRegex = Regex(
         """([+-]?\d+(?:[.,]\d+)?)\s*[%٪]"""
     )
 
-    /*
-     * برای حالتی که OCR علامت درصد را حذف کرده باشد.
-     *
-     * عمداً فقط اعداد نسبتاً ساده را قبول می‌کنیم
-     * و از قبول هر عدد تصادفی جلوگیری می‌کنیم.
-     */
-    private val fallbackSignedNumberRegex = Regex(
-        """(?<![A-Z0-9])([+-])\s*(\d{1,3}(?:[.,]\d{1,2})?)(?![A-Z0-9])"""
+    private val signedNumberRegex = Regex(
+        """([+-])\s*(\d{1,3}(?:[.,]\d{1,2})?)"""
     )
 
     private fun normalize(text: String): String {
         return text
             .uppercase(Locale.US)
-
-            // درصد فارسی
             .replace('٪', '%')
-
-            // انواع خط تیره OCR
             .replace('−', '-')
             .replace('–', '-')
             .replace('—', '-')
             .replace('﹣', '-')
-
-            // چند خطای رایج OCR
             .replace('|', 'I')
-
-            // حذف فاصله‌های اضافی
             .replace(Regex("""\s+"""), " ")
             .trim()
     }
 
     private fun compact(text: String): String {
-        return normalize(text)
-            .replace(" ", "")
+        return normalize(text).replace(" ", "")
     }
 
-    /**
-     * پیدا کردن نماد ارز
-     */
-    private fun findSymbol(text: String): String? {
+    private data class SymbolHit(
+        val symbol: String,
+        val position: Int
+    )
+
+    private data class PercentHit(
+        val value: Double,
+        val position: Int
+    )
+
+    private fun findAllSymbols(text: String): List<SymbolHit> {
 
         val normalized = compact(text)
 
-        /*
-         * اول نام‌ها و نمادهای طولانی‌تر بررسی می‌شوند
-         * تا مثلاً ETHEREUM قبل از ETH پیدا شود.
-         */
+        val hits = mutableListOf<SymbolHit>()
+
         val entries = knownSymbols.entries
-            .sortedByDescending { it.key.replace(" ", "").length }
+            .sortedByDescending {
+                it.key.replace(" ", "").length
+            }
 
         for ((name, symbol) in entries) {
 
             val key = name.replace(" ", "")
 
-            if (normalized.contains(key)) {
-                return symbol
+            var start = 0
+
+            while (true) {
+
+                val position =
+                    normalized.indexOf(key, start)
+
+                if (position < 0) {
+                    break
+                }
+
+                hits += SymbolHit(
+                    symbol = symbol,
+                    position = position
+                )
+
+                start = position + key.length
             }
         }
 
         /*
-         * تعدادی خطای رایج OCR برای نمادهای مهم
-         *
-         * BТC / BTC
-         * ЕТН / ETH
-         * S0L / SOL
+         * اگر یک Symbol چند بار توسط نام و Symbol
+         * خودش پیدا شده، بر اساس موقعیت مرتب می‌کنیم.
          */
-        val ocrText = normalized
-            .replace('0', 'O')
-            .replace('1', 'I')
+        return hits
+            .sortedBy { it.position }
+            .filterIndexed { index, hit ->
 
-        val commonOcrSymbols = mapOf(
-            "BTC" to "BTC",
-            "BТC" to "BTC",
-            "ETH" to "ETH",
-            "SOL" to "SOL",
-            "XRP" to "XRP",
-            "BNB" to "BNB",
-            "ADA" to "ADA",
-            "DOGE" to "DOGE",
-            "TON" to "TON",
-            "TRX" to "TRX",
-            "AVAX" to "AVAX",
-            "SHIB" to "SHIB",
-            "DOT" to "DOT",
-            "LINK" to "LINK",
-            "LTC" to "LTC",
-            "BCH" to "BCH",
-            "UNI" to "UNI",
-            "ATOM" to "ATOM",
-            "ETC" to "ETC",
-            "XLM" to "XLM",
-            "NEAR" to "NEAR",
-            "APT" to "APT",
-            "FIL" to "FIL",
-            "ARB" to "ARB",
-            "OP" to "OP",
-            "SUI" to "SUI",
-            "INJ" to "INJ",
-            "AAVE" to "AAVE",
-            "ALGO" to "ALGO",
-            "VET" to "VET",
-            "ICP" to "ICP",
-            "HBAR" to "HBAR",
-            "MKR" to "MKR",
-            "PEPE" to "PEPE",
-            "FLOKI" to "FLOKI",
-            "BONK" to "BONK",
-            "SEI" to "SEI",
-            "TIA" to "TIA",
-            "RUNE" to "RUNE",
-            "EOS" to "EOS"
-        )
+                if (index == 0) {
+                    true
+                } else {
+                    val previous = hits
+                        .sortedBy { it.position }[index - 1]
 
-        for ((key, symbol) in commonOcrSymbols) {
-            if (ocrText.contains(key)) {
-                return symbol
+                    hit.position != previous.position ||
+                        hit.symbol != previous.symbol
+                }
             }
-        }
-
-        return null
     }
 
-    /**
-     * پیدا کردن درصد تغییر
-     */
-    private fun findChangePercent(text: String): Double? {
+    private fun findAllPercents(text: String): List<PercentHit> {
 
         val normalized = normalize(text)
 
+        val result = mutableListOf<PercentHit>()
+
         /*
-         * روش اول:
-         * فقط عددی که واقعاً کنار % قرار گرفته.
+         * اول درصدهایی که % دارند.
          */
-        val explicitPercent = percentRegex
-            .findAll(normalized)
-            .mapNotNull { match ->
+        percentRegex.findAll(normalized).forEach { match ->
 
-                match.groupValues[1]
-                    .replace(",", ".")
-                    .replace(" ", "")
-                    .toDoubleOrNull()
-            }
-            .lastOrNull { value ->
+            val value = match.groupValues[1]
+                .replace(",", ".")
+                .replace(" ", "")
+                .toDoubleOrNull()
+
+            if (
+                value != null &&
                 value in -100.0..1000.0
+            ) {
+                result += PercentHit(
+                    value = value,
+                    position = match.range.first
+                )
             }
-
-        if (explicitPercent != null) {
-            return explicitPercent
         }
 
         /*
-         * روش دوم:
-         * اگر OCR علامت % را حذف کرده باشد.
-         *
-         * فقط اعداد دارای + یا - را بررسی می‌کنیم.
-         * اعداد بدون علامت اصلاً قبول نمی‌شوند.
+         * اگر درصد صریح پیدا نشد،
+         * اعداد علامت‌دار را بررسی می‌کنیم.
          */
-        val fallback = fallbackSignedNumberRegex
-            .findAll(normalized)
-            .mapNotNull { match ->
+        if (result.isEmpty()) {
 
-                val sign = match.groupValues[1]
-                val number = match.groupValues[2]
+            signedNumberRegex
+                .findAll(normalized)
+                .forEach { match ->
 
-                val value =
-                    (sign + number)
-                        .replace(",", ".")
-                        .toDoubleOrNull()
+                    val sign = match.groupValues[1]
+                    val number = match.groupValues[2]
 
-                value
-            }
-            .lastOrNull { value ->
-                value in -100.0..1000.0
-            }
+                    val value =
+                        (sign + number)
+                            .replace(",", ".")
+                            .toDoubleOrNull()
 
-        return fallback
+                    if (
+                        value != null &&
+                        value in -100.0..1000.0
+                    ) {
+                        result += PercentHit(
+                            value = value,
+                            position = match.range.first
+                        )
+                    }
+                }
+        }
+
+        return result.sortedBy { it.position }
     }
 
-    /**
-     * نام قابل نمایش ارز
-     */
     private fun findName(
-        line: String,
+        text: String,
         symbol: String
     ): String {
 
-        val normalized = compact(line)
+        val normalized = compact(text)
 
         val entry = knownSymbols.entries
             .sortedByDescending {
                 it.key.replace(" ", "").length
             }
-            .firstOrNull {
+            .firstOrNull { entry ->
 
-                it.value == symbol &&
+                entry.value == symbol &&
                     normalized.contains(
-                        it.key.replace(" ", "")
+                        entry.key.replace(" ", "")
                     )
             }
 
-        if (entry != null) {
-
-            return entry.key
-                .lowercase(Locale.US)
-                .replaceFirstChar {
-                    it.uppercase()
-                }
-        }
-
-        return symbol
+        return entry?.key
+            ?.lowercase(Locale.US)
+            ?.replaceFirstChar {
+                it.uppercase()
+            }
+            ?: symbol
     }
 
-    /**
-     * تبدیل متن OCR به Observation
-     */
     fun parse(
         text: String,
         exchange: String,
         seen: LocalDateTime
     ): List<Observation> {
 
-        val result = mutableListOf<Observation>()
-
-        /*
-         * متن را خط‌به‌خط تمیز می‌کنیم.
-         */
-        val lines = text
-            .lines()
-            .map { normalize(it) }
-            .filter { it.isNotBlank() }
-
-        for (index in lines.indices) {
-
-            val currentLine = lines[index]
-
-            val symbol =
-                findSymbol(currentLine)
-                    ?: continue
-
-            /*
-             * اول همان خط را بررسی می‌کنیم.
-             */
-            var change =
-                findChangePercent(currentLine)
-
-            /*
-             * اگر درصد در همان خط نبود،
-             * دو خط بعدی را هم بررسی می‌کنیم.
-             */
-            if (change == null) {
-
-                for (offset in 1..2) {
-
-                    val nextLine =
-                        lines.getOrNull(index + offset)
-                            ?: continue
-
-                    /*
-                     * اگر خط بعدی خودش یک ارز دیگر باشد،
-                     * دیگر به آن خط برای درصد این ارز اعتماد نمی‌کنیم.
-                     */
-                    val anotherSymbol =
-                        findSymbol(nextLine)
-
-                    if (
-                        anotherSymbol != null &&
-                        anotherSymbol != symbol
-                    ) {
-                        break
-                    }
-
-                    change =
-                        findChangePercent(nextLine)
-
-                    if (change != null) {
-                        break
-                    }
-                }
-            }
-
-            /*
-             * بدون درصد معتبر، رکورد ذخیره نمی‌کنیم.
-             */
-            if (change == null) {
-                continue
-            }
-
-            result += Observation(
-                exchange = exchange.ifBlank {
-                    "نامشخص"
-                },
-                symbol = symbol,
-                name = findName(
-                    currentLine,
-                    symbol
-                ),
-                observedAt = seen,
-                changePercent = change
-            )
+        if (text.isBlank()) {
+            return emptyList()
         }
 
         /*
-         * اگر یک نماد چند بار در OCR دیده شد،
-         * فقط آخرین نتیجه آن نماد را نگه می‌داریم.
+         * همه ارزهای موجود در کل OCR
+         * پیدا می‌شوند؛ دیگر محدود به یک خط نیستیم.
+         */
+        val symbols = findAllSymbols(text)
+
+        if (symbols.isEmpty()) {
+            return emptyList()
+        }
+
+        /*
+         * همه درصدهای موجود در کل OCR
+         * پیدا می‌شوند.
+         */
+        val percentages = findAllPercents(text)
+
+        if (percentages.isEmpty()) {
+            return emptyList()
+        }
+
+        val result = mutableListOf<Observation>()
+
+        /*
+         * اگر تعداد ارزها و درصدها برابر باشد،
+         * بهترین حالت است:
+         *
+         * BTC
+         * ETH
+         * SOL
+         *
+         * +2.1%
+         * -1.4%
+         * +3.2%
+         *
+         * را به ترتیب به هم وصل می‌کنیم.
+         */
+        if (symbols.size == percentages.size) {
+
+            for (i in symbols.indices) {
+
+                val symbolHit = symbols[i]
+                val percentHit = percentages[i]
+
+                result += Observation(
+                    exchange = exchange.ifBlank {
+                        "نامشخص"
+                    },
+                    symbol = symbolHit.symbol,
+                    name = symbolHit.symbol,
+                    observedAt = seen,
+                    changePercent = percentHit.value
+                )
+            }
+
+        } else {
+
+            /*
+             * اگر تعدادشان برابر نبود،
+             * برای هر ارز نزدیک‌ترین درصد استفاده می‌شود.
+             */
+            val usedPercentIndexes =
+                mutableSetOf<Int>()
+
+            for (symbolHit in symbols) {
+
+                var bestIndex = -1
+                var bestDistance = Int.MAX_VALUE
+
+                for (
+                    percentIndex in percentages.indices
+                ) {
+
+                    if (
+                        percentIndex in
+                        usedPercentIndexes
+                    ) {
+                        continue
+                    }
+
+                    val distance =
+                        kotlin.math.abs(
+                            symbolHit.position -
+                                percentages[percentIndex].position
+                        )
+
+                    if (distance < bestDistance) {
+                        bestDistance = distance
+                        bestIndex = percentIndex
+                    }
+                }
+
+                if (bestIndex >= 0) {
+
+                    usedPercentIndexes += bestIndex
+
+                    val percent =
+                        percentages[bestIndex]
+
+                    result += Observation(
+                        exchange = exchange.ifBlank {
+                            "نامشخص"
+                        },
+                        symbol = symbolHit.symbol,
+                        name = symbolHit.symbol,
+                        observedAt = seen,
+                        changePercent = percent.value
+                    )
+                }
+            }
+        }
+
+        /*
+         * هر ارز فقط یک بار ذخیره شود.
+         * اما ارزهای مختلف همگی حفظ می‌شوند.
          */
         return result
             .asReversed()
