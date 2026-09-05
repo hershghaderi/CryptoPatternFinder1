@@ -86,56 +86,46 @@ fun App(store: Store) {
         .sorted()
 
     val picker =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.GetContent()
-        ) { uri: Uri? ->
+    rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
 
-            if (uri == null) {
-                return@rememberLauncherForActivityResult
+        if (uri == null) {
+            return@rememberLauncherForActivityResult
+        }
+
+        try {
+            val text = TesseractHelper.recognize(
+                store.appContext,
+                uri
+            )
+
+            val rows = OcrParser.parse(
+                text,
+                exchange.ifBlank { "نامشخص" },
+                LocalDateTime.now()
+            )
+
+            rows.forEach { observation ->
+                store.insert(observation)
             }
 
-            try {
-                val image = InputImage.fromFilePath(
-                    store.appContext,
-                    uri
-                )
+            refresh()
 
-                TextRecognition
-                    .getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                    .process(image)
-                    .addOnSuccessListener { result ->
+            message = """
+                OCR انجام شد (Tesseract).
 
-                        val rows = OcrParser.parse(
-                            result.text,
-                            exchange.ifBlank { "نامشخص" },
-                            LocalDateTime.now()
-                        )
+                متن خام تشخیص‌داده‌شده:
+                $text
 
-                        rows.forEach { observation ->
-                            store.insert(observation)
-                        }
+                تعداد رکوردهای استخراج‌شده: ${rows.size}
 
-                        refresh()
+                صرافی:
+                ${exchange.ifBlank { "نامشخص" }}
+            """.trimIndent()
 
-                        message = """
-                            OCR انجام شد.
-
-                            متن خام تشخیص‌داده‌شده:
-                            ${result.text}
-
-                            تعداد رکوردهای استخراج‌شده: ${rows.size}
-
-                            صرافی:
-                            ${exchange.ifBlank { "نامشخص" }}
-                        """.trimIndent()
-                    }
-                    .addOnFailureListener { error ->
-                        message = "خطا در OCR: ${error.message}"
-                    }
-
-            } catch (e: Exception) {
-                message = "خطا: ${e.message}"
-            }
+        } catch (e: Exception) {
+            message = "خطا در OCR: ${e.message}"
         }
 
     MaterialTheme {
