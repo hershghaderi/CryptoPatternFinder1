@@ -40,7 +40,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import com.cryptopatternfinder.core.Observation
 import com.cryptopatternfinder.data.Store
 import com.cryptopatternfinder.ocr.OcrParser
 import com.cryptopatternfinder.ocr.TesseractHelper
