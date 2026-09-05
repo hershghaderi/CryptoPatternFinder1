@@ -9,7 +9,7 @@ object OcrParser {
 
     /*
      * ============================================================
-     * شناسه‌ها و نام‌های شناخته‌شده ارزها
+     * شناسه‌های شناخته‌شده ارزها
      * ============================================================
      */
 
@@ -146,7 +146,6 @@ object OcrParser {
         "XTZ" to "XTZ",
 
         "FLOW" to "FLOW",
-
         "SAND" to "SAND",
         "MANA" to "MANA",
 
@@ -157,7 +156,6 @@ object OcrParser {
         "GRT" to "GRT",
 
         "KAVA" to "KAVA",
-
         "ALPHA" to "ALPHA",
 
         "ZILLIQA" to "ZIL",
@@ -170,7 +168,6 @@ object OcrParser {
         "DASH" to "DASH",
 
         "LUNC" to "LUNC",
-
         "TERRA" to "LUNA",
         "LUNA" to "LUNA",
 
@@ -233,28 +230,7 @@ object OcrParser {
 
     /*
      * ============================================================
-     * ساختارهای داخلی Parser
-     * ============================================================
-     */
-
-    private data class SymbolHit(
-        val symbol: String,
-        val position: Int,
-        val line: Int = -1
-    )
-
-    private data class PercentHit(
-        val value: Double,
-        val position: Int,
-        val line: Int = -1
-    )
-
-    /*
-     * ============================================================
-     * نرمال‌سازی متن
-     *
-     * نکته مهم:
-     * newline را حفظ می‌کنیم.
+     * نرمال‌سازی متن OCR
      * ============================================================
      */
 
@@ -273,26 +249,21 @@ object OcrParser {
             .replace('«', '<')
             .replace('»', '>')
             .replace('\r', '\n')
-            .replace(Regex("""[ \t]+"""), " ")
-            .replace(
-                Regex("""\n{2,}"""),
-                "\n"
-            )
+            .replace(Regex("[ \t]+"), " ")
             .trim()
     }
 
-    /*
-     * برای جستجوی Symbol،
-     * فاصله‌های داخل متن حذف می‌شوند.
-     */
     private fun compact(text: String): String {
 
         return normalize(text)
             .replace(" ", "")
+            .replace("\n", "")
     }
 
     /*
-     * اصلاح خطاهای رایج OCR در اعداد.
+     * ============================================================
+     * اصلاح خطاهای رایج OCR در اعداد
+     * ============================================================
      */
 
     private fun normalizeOcrNumber(
@@ -312,7 +283,25 @@ object OcrParser {
 
     /*
      * ============================================================
-     * پیدا کردن Symbolها
+     * مدل‌های داخلی OCR
+     * ============================================================
+     */
+
+    private data class SymbolHit(
+        val symbol: String,
+        val position: Int,
+        val line: Int = -1
+    )
+
+    private data class PercentHit(
+        val value: Double,
+        val position: Int,
+        val line: Int = -1
+    )
+
+    /*
+     * ============================================================
+     * پیدا کردن همه Symbolها
      * ============================================================
      */
 
@@ -320,11 +309,9 @@ object OcrParser {
         text: String
     ): List<SymbolHit> {
 
-        val normalized =
-            normalize(text)
+        val normalized = normalize(text)
 
-        val hits =
-            mutableListOf<SymbolHit>()
+        val hits = mutableListOf<SymbolHit>()
 
         val entries =
             knownSymbols.entries
@@ -338,10 +325,10 @@ object OcrParser {
             .split("\n")
             .forEachIndexed { lineIndex, line ->
 
-                val normalizedLine =
+                val compactLine =
                     compact(line)
 
-                if (normalizedLine.isBlank()) {
+                if (compactLine.isBlank()) {
                     return@forEachIndexed
                 }
 
@@ -350,16 +337,14 @@ object OcrParser {
                     val key =
                         name
                             .replace(" ", "")
-                            .uppercase(
-                                Locale.US
-                            )
+                            .uppercase(Locale.US)
 
                     var start = 0
 
                     while (true) {
 
                         val position =
-                            normalizedLine.indexOf(
+                            compactLine.indexOf(
                                 key,
                                 start
                             )
@@ -381,13 +366,11 @@ object OcrParser {
             }
 
         /*
-         * اگر OCR newline مناسبی نداشت،
-         * کل متن نیز بررسی می‌شود.
+         * اگر OCR کل متن را بدون خط برگرداند.
          */
-
         if (hits.isEmpty()) {
 
-            val full =
+            val compactText =
                 compact(text)
 
             for ((name, symbol) in entries) {
@@ -395,16 +378,14 @@ object OcrParser {
                 val key =
                     name
                         .replace(" ", "")
-                        .uppercase(
-                            Locale.US
-                        )
+                        .uppercase(Locale.US)
 
                 var start = 0
 
                 while (true) {
 
                     val position =
-                        full.indexOf(
+                        compactText.indexOf(
                             key,
                             start
                         )
@@ -426,11 +407,15 @@ object OcrParser {
         }
 
         return removeDuplicateSymbolHits(
-            hits.sortedBy {
-                it.position
-            }
+            hits.sortedBy { it.position }
         )
     }
+
+    /*
+     * ============================================================
+     * حذف تشخیص‌های تکراری Symbol
+     * ============================================================
+     */
 
     private fun removeDuplicateSymbolHits(
         hits: List<SymbolHit>
@@ -444,14 +429,11 @@ object OcrParser {
             val duplicate =
                 result.any { previous ->
 
-                    previous.symbol ==
-                        hit.symbol &&
-                        previous.line ==
-                        hit.line &&
+                    previous.symbol == hit.symbol &&
                         abs(
                             previous.position -
                                 hit.position
-                        ) <= 3
+                        ) <= 2
                 }
 
             if (!duplicate) {
@@ -510,7 +492,7 @@ object OcrParser {
             }
 
         /*
-         * 2 ـ OCR که % را P خوانده است.
+         * 2 ـ تبدیل % به P توسط OCR
          */
 
         percentOcrRegex
@@ -530,7 +512,7 @@ object OcrParser {
                     val position =
                         match.range.first
 
-                    val duplicate =
+                    val exists =
                         result.any {
                             abs(
                                 it.position -
@@ -538,7 +520,7 @@ object OcrParser {
                             ) <= 3
                         }
 
-                    if (!duplicate) {
+                    if (!exists) {
 
                         result += PercentHit(
                             value = value,
@@ -554,7 +536,7 @@ object OcrParser {
             }
 
         /*
-         * 3 ـ عدد دارای + یا -
+         * 3 ـ درصد بدون علامت درصد ولی با + یا -
          */
 
         if (result.isEmpty()) {
@@ -589,7 +571,7 @@ object OcrParser {
         }
 
         /*
-         * 4 ـ درصد ناقص
+         * 4 ـ حالت OCR ناقص
          */
 
         if (result.isEmpty()) {
@@ -623,9 +605,7 @@ object OcrParser {
         }
 
         return result
-            .sortedBy {
-                it.position
-            }
+            .sortedBy { it.position }
             .distinctBy {
                 Triple(
                     it.value,
@@ -664,7 +644,7 @@ object OcrParser {
 
     /*
      * ============================================================
-     * نام کامل ارز
+     * نام ارز
      * ============================================================
      */
 
@@ -688,10 +668,7 @@ object OcrParser {
                     entry.value == symbol &&
                         normalized.contains(
                             entry.key
-                                .replace(
-                                    " ",
-                                    ""
-                                )
+                                .replace(" ", "")
                         )
                 }
 
@@ -762,6 +739,7 @@ object OcrParser {
         for (symbol in symbols) {
 
             var bestIndex = -1
+
             var bestDistance =
                 Int.MAX_VALUE
 
@@ -792,13 +770,12 @@ object OcrParser {
 
                 val distance =
                     abs(
-                        percent.position -
-                            symbol.position
+                        symbol.position -
+                            percent.position
                     )
 
                 if (
-                    distance <
-                    bestDistance
+                    distance < bestDistance
                 ) {
 
                     bestDistance =
@@ -833,7 +810,7 @@ object OcrParser {
 
     /*
      * ============================================================
-     * جفت‌کردن ترتیبی
+     * جفت‌کردن بر اساس ترتیب
      * ============================================================
      */
 
@@ -873,7 +850,7 @@ object OcrParser {
 
     /*
      * ============================================================
-     * جفت‌کردن بر اساس نزدیک‌ترین موقعیت
+     * جفت‌کردن نزدیک‌ترین درصد
      * ============================================================
      */
 
@@ -914,8 +891,7 @@ object OcrParser {
                     )
 
                 if (
-                    distance <
-                    bestDistance
+                    distance < bestDistance
                 ) {
 
                     bestDistance =
@@ -950,7 +926,7 @@ object OcrParser {
 
     /*
      * ============================================================
-     * حذف رکوردهای تکراری
+     * حذف Observation تکراری
      * ============================================================
      */
 
@@ -968,7 +944,21 @@ object OcrParser {
 
     /*
      * ============================================================
-     * نقطه ورود اصلی Parser
+     * اعتبارسنجی مقدار درصد
+     * ============================================================
+     */
+
+    private fun isValidPercent(
+        value: Double
+    ): Boolean {
+
+        return value.isFinite() &&
+            value in -100.0..1000.0
+    }
+
+    /*
+     * ============================================================
+     * تابع اصلی Parser
      * ============================================================
      */
 
@@ -983,7 +973,7 @@ object OcrParser {
         }
 
         /*
-         * 1 ـ پیدا کردن ارزها
+         * استخراج ارزها
          */
 
         val symbols =
@@ -994,19 +984,24 @@ object OcrParser {
         }
 
         /*
-         * 2 ـ پیدا کردن درصدها
+         * استخراج درصدها
          */
 
         val percentages =
             findAllPercents(text)
+                .filter {
+                    isValidPercent(
+                        it.value
+                    )
+                }
 
         if (percentages.isEmpty()) {
             return emptyList()
         }
 
         /*
-         * 3 ـ اولویت:
-         * ارز و درصد در یک خط
+         * اولویت 1:
+         * Symbol و درصد در یک خط.
          */
 
         val sameLine =
@@ -1018,8 +1013,17 @@ object OcrParser {
                 seen = seen
             )
 
+        /*
+         * اگر جفت‌سازی خطی حداقل برای همه
+         * ارزها امکان‌پذیر بود، همان معتبرتر است.
+         */
+
         if (
-            sameLine.isNotEmpty()
+            sameLine.size >=
+                minOf(
+                    symbols.size,
+                    percentages.size
+                )
         ) {
 
             return removeDuplicateObservations(
@@ -1028,16 +1032,17 @@ object OcrParser {
         }
 
         /*
-         * 4 ـ اگر تعداد برابر باشد:
-         * جفت‌کردن ترتیبی
+         * اولویت 2:
+         * اگر تعداد Symbol و درصد برابر است،
+         * ترتیب OCR حفظ می‌شود.
          */
 
         if (
             symbols.size ==
-            percentages.size
+                percentages.size
         ) {
 
-            return removeDuplicateObservations(
+            val sequential =
                 pairSequentially(
                     text = text,
                     symbols = symbols,
@@ -1045,15 +1050,18 @@ object OcrParser {
                     exchange = exchange,
                     seen = seen
                 )
+
+            return removeDuplicateObservations(
+                sequential
             )
         }
 
         /*
-         * 5 ـ در غیر این صورت:
-         * نزدیک‌ترین درصد
+         * اولویت 3:
+         * نزدیک‌ترین درصد به هر Symbol.
          */
 
-        return removeDuplicateObservations(
+        val nearest =
             pairNearest(
                 text = text,
                 symbols = symbols,
@@ -1061,6 +1069,9 @@ object OcrParser {
                 exchange = exchange,
                 seen = seen
             )
+
+        return removeDuplicateObservations(
+            nearest
         )
     }
 }
