@@ -42,9 +42,6 @@ import androidx.compose.ui.unit.dp
 import com.cryptopatternfinder.core.Observation
 import com.cryptopatternfinder.data.Store
 import com.cryptopatternfinder.ocr.OcrParser
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
