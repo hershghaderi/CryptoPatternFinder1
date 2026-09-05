@@ -127,6 +127,7 @@ fun App(store: Store) {
         } catch (e: Exception) {
             message = "خطا در OCR: ${e.message}"
         }
+        }
 
     MaterialTheme {
 
