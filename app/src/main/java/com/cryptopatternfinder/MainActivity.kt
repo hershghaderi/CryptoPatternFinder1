@@ -1,6 +1,7 @@
 package com.cryptopatternfinder
 
 import android.net.Uri
+import com.cryptopatternfinder.core.Observation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
