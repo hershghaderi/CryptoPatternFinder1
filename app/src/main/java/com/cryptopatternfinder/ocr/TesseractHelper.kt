@@ -131,7 +131,7 @@ object TesseractHelper {
 
             tess?.setImage(bitmap)
 
-            tess?.utF8Text ?: ""
+            tess?.uTF8Text ?: ""
 
         } finally {
 
