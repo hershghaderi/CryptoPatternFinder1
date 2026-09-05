@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.cryptopatternfinder.core.Observation
 import com.cryptopatternfinder.data.Store
 import com.cryptopatternfinder.ocr.OcrParser
+import com.cryptopatternfinder.ocr.TesseractHelper
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -63,10 +64,14 @@ fun App(store: Store) {
     var exchange by remember { mutableStateOf("") }
     var selectedSymbol by remember { mutableStateOf("") }
     var message by remember {
-        mutableStateOf("نام صرافی را وارد کن و سپس اسکرین‌شات را اضافه کن.")
+        mutableStateOf(
+            "نام صرافی را وارد کن و سپس اسکرین‌شات را اضافه کن."
+        )
     }
 
-    val data = remember { mutableStateListOf<Observation>() }
+    val data = remember {
+        mutableStateListOf<Observation>()
+    }
 
     fun refresh() {
         data.clear()
@@ -83,47 +88,56 @@ fun App(store: Store) {
         .sorted()
 
     val picker =
-    rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
 
-        if (uri == null) {
-            return@rememberLauncherForActivityResult
-        }
-
-        try {
-            val text = TesseractHelper.recognize(
-                store.appContext,
-                uri
-            )
-
-            val rows = OcrParser.parse(
-                text,
-                exchange.ifBlank { "نامشخص" },
-                LocalDateTime.now()
-            )
-
-            rows.forEach { observation ->
-                store.insert(observation)
+            if (uri == null) {
+                return@rememberLauncherForActivityResult
             }
 
-            refresh()
+            try {
 
-            message = """
-                OCR انجام شد (Tesseract).
+                /*
+                 * OCR فقط با Tesseract انجام می‌شود.
+                 * ML Kit از پروژه حذف شده است.
+                 */
+                val text = TesseractHelper.recognize(
+                    store.appContext,
+                    uri
+                )
 
-                متن خام تشخیص‌داده‌شده:
-                $text
+                val rows = OcrParser.parse(
+                    text,
+                    exchange.ifBlank {
+                        "نامشخص"
+                    },
+                    LocalDateTime.now()
+                )
 
-                تعداد رکوردهای استخراج‌شده: ${rows.size}
+                rows.forEach { observation ->
+                    store.insert(observation)
+                }
 
-                صرافی:
-                ${exchange.ifBlank { "نامشخص" }}
-            """.trimIndent()
+                refresh()
 
-        } catch (e: Exception) {
-            message = "خطا در OCR: ${e.message}"
-        }
+                message = """
+                    OCR انجام شد (Tesseract).
+
+                    متن خام تشخیص‌داده‌شده:
+                    $text
+
+                    تعداد رکوردهای استخراج‌شده: ${rows.size}
+
+                    صرافی:
+                    ${exchange.ifBlank { "نامشخص" }}
+                """.trimIndent()
+
+            } catch (e: Exception) {
+
+                message =
+                    "خطا در OCR: ${e.message ?: "خطای نامشخص"}"
+            }
         }
 
     MaterialTheme {
@@ -146,9 +160,13 @@ fun App(store: Store) {
 
                         NavigationBarItem(
                             selected = tab == index,
-                            onClick = { tab = index },
+                            onClick = {
+                                tab = index
+                            },
                             icon = {},
-                            label = { Text(name) }
+                            label = {
+                                Text(name)
+                            }
                         )
                     }
                 }
@@ -241,7 +259,9 @@ fun RegistrationScreen(
                 style = MaterialTheme.typography.titleLarge
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                Modifier.height(12.dp)
+            )
 
             OutlinedTextField(
                 value = exchange,
@@ -252,7 +272,9 @@ fun RegistrationScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                Modifier.height(12.dp)
+            )
 
             Button(
                 onClick = onPickImage,
@@ -261,11 +283,15 @@ fun RegistrationScreen(
                 Text("📸 افزودن اسکرین‌شات")
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                Modifier.height(12.dp)
+            )
 
             Text(message)
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(
+                Modifier.height(8.dp)
+            )
 
             Button(
                 onClick = {
@@ -278,7 +304,9 @@ fun RegistrationScreen(
                 Text("📋 کپی متن OCR")
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(
+                Modifier.height(16.dp)
+            )
 
             Card(
                 modifier = Modifier.fillMaxWidth()
@@ -293,13 +321,17 @@ fun RegistrationScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(
+                        Modifier.height(8.dp)
+                    )
 
                     Text(
                         "رکوردهای ذخیره‌شده: $totalRecords"
                     )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
 
                     Text(
                         "هر اسکرین‌شات با نام صرافی و زمان ثبت می‌شود."
@@ -307,13 +339,17 @@ fun RegistrationScreen(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                Modifier.height(12.dp)
+            )
 
             Text(
                 "برای تشخیص بهتر ارز، نمادهایی مانند BTC، ETH، XRP، SOL و سایر نمادهای معتبر از متن تصویر استخراج می‌شوند."
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(
+                Modifier.height(24.dp)
+            )
         }
     }
 }
@@ -331,7 +367,9 @@ fun AnalysisScreen(
         style = MaterialTheme.typography.titleLarge
     )
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(
+        Modifier.height(12.dp)
+    )
 
     if (symbols.isEmpty()) {
 
@@ -344,7 +382,9 @@ fun AnalysisScreen(
 
     Text("انتخاب ارز:")
 
-    Spacer(Modifier.height(8.dp))
+    Spacer(
+        Modifier.height(8.dp)
+    )
 
     LazyColumn(
         modifier = Modifier.height(180.dp)
@@ -368,11 +408,15 @@ fun AnalysisScreen(
                 )
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(
+                Modifier.height(4.dp)
+            )
         }
     }
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(
+        Modifier.height(12.dp)
+    )
 
     if (selectedSymbol.isBlank()) {
 
@@ -403,7 +447,9 @@ fun AnalysisScreen(
                     style = MaterialTheme.typography.headlineSmall
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(
+                    Modifier.height(8.dp)
+                )
 
                 Text(
                     "تعداد مشاهدات: ${rows.size}"
@@ -411,7 +457,9 @@ fun AnalysisScreen(
 
                 if (rows.isNotEmpty()) {
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
 
                     val latest = rows.last()
 
@@ -421,26 +469,36 @@ fun AnalysisScreen(
                         )
                     )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
 
                     Text(
                         "صرافی: ${latest.exchange}"
                     )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(
+                        Modifier.height(6.dp)
+                    )
 
                     Text(
-                        "آخرین ثبت: ${formatDate(latest.observedAt)}"
+                        "آخرین ثبت: ${formatDate(
+                            latest.observedAt
+                        )}"
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(
+            Modifier.height(12.dp)
+        )
 
         PriceChart(rows)
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(
+            Modifier.height(12.dp)
+        )
 
         if (rows.size >= 3) {
 
@@ -450,10 +508,14 @@ fun AnalysisScreen(
                 }.average()
 
             Text(
-                "میانگین تغییر: %.2f%%".format(average)
+                "میانگین تغییر: %.2f%%".format(
+                    average
+                )
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(
+                Modifier.height(6.dp)
+            )
 
             val positive =
                 rows.count {
@@ -496,27 +558,37 @@ fun PriceChart(
                 style = MaterialTheme.typography.titleMedium
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                Modifier.height(12.dp)
+            )
 
             if (rows.isEmpty()) {
 
-                Text("داده‌ای برای نمودار وجود ندارد.")
+                Text(
+                    "داده‌ای برای نمودار وجود ندارد."
+                )
 
             } else {
 
                 val chartRows = rows
-                    .sortedBy { it.observedAt }
+                    .sortedBy {
+                        it.observedAt
+                    }
                     .takeLast(20)
 
                 val values = chartRows.map {
                     it.changePercent
                 }
 
-                val minValue = values.minOrNull() ?: 0.0
-                val maxValue = values.maxOrNull() ?: 0.0
+                val minValue =
+                    values.minOrNull() ?: 0.0
 
-                val range = (maxValue - minValue)
-                    .coerceAtLeast(1.0)
+                val maxValue =
+                    values.maxOrNull() ?: 0.0
+
+                val range =
+                    (maxValue - minValue)
+                        .coerceAtLeast(1.0)
 
                 val outlineColor =
                     MaterialTheme.colorScheme.outline
@@ -535,20 +607,36 @@ fun PriceChart(
 
                     val zeroY =
                         height -
-                            (((0.0 - minValue) / range) * height)
+                            (
+                                (
+                                    (0.0 - minValue) /
+                                        range
+                                ) * height
+                            )
                                 .toFloat()
-                                .coerceIn(0f, height)
+                                .coerceIn(
+                                    0f,
+                                    height
+                                )
 
                     drawLine(
                         color = outlineColor,
-                        start = Offset(0f, zeroY),
-                        end = Offset(width, zeroY),
+                        start = Offset(
+                            0f,
+                            zeroY
+                        ),
+                        end = Offset(
+                            width,
+                            zeroY
+                        ),
                         strokeWidth = 2f
                     )
 
                     if (chartRows.size >= 2) {
 
-                        for (i in 0 until chartRows.lastIndex) {
+                        for (
+                            i in 0 until chartRows.lastIndex
+                        ) {
 
                             val x1 =
                                 i.toFloat() /
@@ -564,57 +652,93 @@ fun PriceChart(
 
                             val y1 =
                                 height -
-                                    (((values[i] - minValue) / range) *
-                                        height)
+                                    (
+                                        (
+                                            (
+                                                values[i] -
+                                                    minValue
+                                            ) / range
+                                        ) * height
+                                    )
                                         .toFloat()
 
                             val y2 =
                                 height -
-                                    (((values[i + 1] - minValue) / range) *
-                                        height)
+                                    (
+                                        (
+                                            (
+                                                values[i + 1] -
+                                                    minValue
+                                            ) / range
+                                        ) * height
+                                    )
                                         .toFloat()
 
                             drawLine(
                                 color = primaryColor,
-                                start = Offset(x1, y1),
-                                end = Offset(x2, y2),
+                                start = Offset(
+                                    x1,
+                                    y1
+                                ),
+                                end = Offset(
+                                    x2,
+                                    y2
+                                ),
                                 strokeWidth = 5f
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(
+                    Modifier.height(8.dp)
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement =
+                        Arrangement.SpaceBetween
                 ) {
 
                     Text(
-                        "کمینه: %.2f%%".format(minValue)
+                        "کمینه: %.2f%%".format(
+                            minValue
+                        )
                     )
 
                     Text(
-                        "بیشینه: %.2f%%".format(maxValue)
+                        "بیشینه: %.2f%%".format(
+                            maxValue
+                        )
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(
+                    Modifier.height(8.dp)
+                )
 
                 val latest = values.last()
 
                 Text(
-                    "آخرین مقدار: %.2f%%".format(latest)
+                    "آخرین مقدار: %.2f%%".format(
+                        latest
+                    )
                 )
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(
+                    Modifier.height(4.dp)
+                )
 
                 Text(
                     when {
-                        latest > 0 -> "روند فعلی: صعودی ↗"
-                        latest < 0 -> "روند فعلی: نزولی ↘"
-                        else -> "روند فعلی: خنثی →"
+                        latest > 0 ->
+                            "روند فعلی: صعودی ↗"
+
+                        latest < 0 ->
+                            "روند فعلی: نزولی ↘"
+
+                        else ->
+                            "روند فعلی: خنثی →"
                     }
                 )
             }
@@ -634,7 +758,9 @@ fun NewsScreen(
         style = MaterialTheme.typography.titleLarge
     )
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(
+        Modifier.height(12.dp)
+    )
 
     if (symbols.isEmpty()) {
 
@@ -647,7 +773,9 @@ fun NewsScreen(
 
     Text("ارز مورد نظر:")
 
-    Spacer(Modifier.height(8.dp))
+    Spacer(
+        Modifier.height(8.dp)
+    )
 
     symbols.forEach { symbol ->
 
@@ -667,12 +795,16 @@ fun NewsScreen(
             )
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(
+            Modifier.height(4.dp)
+        )
     }
 
     if (selectedSymbol.isNotBlank()) {
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(
+            Modifier.height(12.dp)
+        )
 
         Card(
             modifier = Modifier.fillMaxWidth()
@@ -687,13 +819,17 @@ fun NewsScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(
+                    Modifier.height(8.dp)
+                )
 
                 Text(
                     "برای دریافت اخبار واقعی، این بخش باید به منبع خبری یا API متصل شود."
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(
+                    Modifier.height(8.dp)
+                )
 
                 Text(
                     "فعلاً انتخاب ارز فعال است و نماد انتخاب‌شده آماده اتصال به اخبار است."
@@ -716,7 +852,9 @@ fun NewsImpactScreen(
         style = MaterialTheme.typography.titleLarge
     )
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(
+        Modifier.height(12.dp)
+    )
 
     if (symbols.isEmpty()) {
 
@@ -746,7 +884,9 @@ fun NewsImpactScreen(
         }
     }
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(
+        Modifier.height(12.dp)
+    )
 
     if (selectedSymbol.isBlank()) {
 
@@ -773,7 +913,9 @@ fun NewsImpactScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(
+                    Modifier.height(8.dp)
+                )
 
                 Text(
                     "تعداد داده‌ها: ${rows.size}"
@@ -786,7 +928,9 @@ fun NewsImpactScreen(
                             it.changePercent
                         }.average()
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(
+                        Modifier.height(8.dp)
+                    )
 
                     Text(
                         "میانگین نوسان: %.2f%%".format(
@@ -794,7 +938,9 @@ fun NewsImpactScreen(
                         )
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(
+                        Modifier.height(8.dp)
+                    )
 
                     Text(
                         if (average > 0) {
@@ -821,13 +967,17 @@ fun HistoryScreen(
         style = MaterialTheme.typography.titleLarge
     )
 
-    Spacer(Modifier.height(8.dp))
+    Spacer(
+        Modifier.height(8.dp)
+    )
 
     Text(
         "داده‌ها بر اساس ارز و زمان ثبت نمایش داده می‌شوند."
     )
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(
+        Modifier.height(12.dp)
+    )
 
     if (data.isEmpty()) {
 
@@ -861,7 +1011,9 @@ fun HistoryScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
 
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(
+                        Modifier.height(4.dp)
+                    )
 
                     Text(
                         "صرافی: ${observation.exchange}"
@@ -874,7 +1026,11 @@ fun HistoryScreen(
                     )
 
                     Text(
-                        "تاریخ ثبت: ${formatDate(observation.observedAt)}"
+                        "تاریخ ثبت: ${
+                            formatDate(
+                                observation.observedAt
+                            )
+                        }"
                     )
                 }
             }
