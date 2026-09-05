@@ -95,13 +95,10 @@ fun App(store: Store) {
             }
 
             try {
-
                 val image = InputImage.fromFilePath(
                     store.appContext,
                     uri
                 )
-
-                message = "در حال خواندن اسکرین‌شات..."
 
                 TextRecognition
                     .getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
@@ -121,16 +118,16 @@ fun App(store: Store) {
                         refresh()
 
                         message = """
-OCR انجام شد.
+                            OCR انجام شد.
 
-متن خام تشخیص‌داده‌شده:
-${result.text}
+                            متن خام تشخیص‌داده‌شده:
+                            ${result.text}
 
-تعداد رکوردهای استخراج‌شده: ${rows.size}
+                            تعداد رکوردهای استخراج‌شده: ${rows.size}
 
-صرافی:
-${exchange.ifBlank { "نامشخص" }}
-""".trimIndent()
+                            صرافی:
+                            ${exchange.ifBlank { "نامشخص" }}
+                        """.trimIndent()
                     }
                     .addOnFailureListener { error ->
                         message = "خطا در OCR: ${error.message}"
@@ -245,82 +242,92 @@ fun RegistrationScreen(
 
     val clipboardManager = LocalClipboardManager.current
 
-    Text(
-        "📥 ثبت اطلاعات",
-        style = MaterialTheme.typography.titleLarge
-    )
-
-    Spacer(Modifier.height(12.dp))
-
-    OutlinedTextField(
-        value = exchange,
-        onValueChange = onExchangeChange,
-        label = {
-            Text("نام صرافی")
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    Spacer(Modifier.height(12.dp))
-
-    Button(
-        onClick = onPickImage,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("📸 افزودن اسکرین‌شات")
-    }
-
-    Spacer(Modifier.height(12.dp))
-
-    Text(message)
-
-    Spacer(Modifier.height(8.dp))
-
-    Button(
-        onClick = {
-            clipboardManager.setText(
-                AnnotatedString(message)
-            )
-        },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("📋 کپی متن OCR")
-    }
-
-    Spacer(Modifier.height(16.dp))
-
-    Card(
-        modifier = Modifier.fillMaxWidth()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize()
     ) {
 
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        item {
 
             Text(
-                "وضعیت ذخیره‌سازی",
-                style = MaterialTheme.typography.titleMedium
+                "📥 ثبت اطلاعات",
+                style = MaterialTheme.typography.titleLarge
             )
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = exchange,
+                onValueChange = onExchangeChange,
+                label = {
+                    Text("نام صرافی")
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Button(
+                onClick = onPickImage,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("📸 افزودن اسکرین‌شات")
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(message)
 
             Spacer(Modifier.height(8.dp))
 
+            Button(
+                onClick = {
+                    clipboardManager.setText(
+                        AnnotatedString(message)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("📋 کپی متن OCR")
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+
+                    Text(
+                        "وضعیت ذخیره‌سازی",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        "رکوردهای ذخیره‌شده: $totalRecords"
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        "هر اسکرین‌شات با نام صرافی و زمان ثبت می‌شود."
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             Text(
-                "رکوردهای ذخیره‌شده: $totalRecords"
+                "برای تشخیص بهتر ارز، نمادهایی مانند BTC، ETH، XRP، SOL و سایر نمادهای معتبر از متن تصویر استخراج می‌شوند."
             )
 
-            Spacer(Modifier.height(6.dp))
-
-            Text(
-                "هر اسکرین‌شات با نام صرافی و زمان ثبت می‌شود."
-            )
+            Spacer(Modifier.height(24.dp))
         }
     }
-
-    Spacer(Modifier.height(12.dp))
-
-    Text(
-        "برای تشخیص بهتر ارز، نمادهایی مانند BTC، ETH، XRP، SOL و سایر نمادهای معتبر از متن تصویر استخراج می‌شوند."
-    )
 }
 
 @Composable
