@@ -10,6 +10,7 @@ data class Observation(
     val observedAt: LocalDateTime,
     val changePercent: Double
 ) {
+
     val direction: Direction
         get() = when {
             changePercent > 0 -> Direction.UP
